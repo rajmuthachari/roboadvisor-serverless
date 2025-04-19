@@ -1,0 +1,206 @@
+/* Main Styles for Rainy Hills Robo Advisor */
+
+/* Section transitions */
+.section {
+    opacity: 0;
+    display: none;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.active {
+    opacity: 1;
+    display: block;
+}
+
+/* Button styles */
+.btn-primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded;
+}
+
+.btn-secondary {
+    @apply bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded;
+}
+
+/* Card styles */
+.card {
+    @apply bg-white p-6 rounded-lg shadow-md mb-6;
+}
+
+/* Tooltip styles */
+.tooltip {
+    @apply relative;
+}
+
+.tooltip .tooltip-text {
+    @apply invisible absolute z-10 p-2 text-sm text-white bg-gray-800 rounded-md;
+    width: 200px;
+    bottom: 100%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltip-text {
+    @apply visible opacity-100;
+}
+
+/* Fund card styles */
+.fund-card {
+    @apply p-4 rounded-lg border border-gray-300 transition-all duration-300;
+}
+
+.fund-card:hover {
+    @apply shadow-md;
+}
+
+/* Table styles */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table th, table td {
+    padding: 0.5rem;
+    text-align: left;
+}
+
+table th {
+    @apply bg-gray-100 text-gray-700 font-semibold;
+}
+
+table tr {
+    @apply border-b border-gray-200;
+}
+
+/* Form input styles */
+input, select {
+    @apply rounded-md border border-gray-300 p-2 w-full;
+}
+
+input[type="range"] {
+    @apply h-2 rounded-lg appearance-none cursor-pointer bg-blue-100;
+}
+
+/* Chart container */
+.chart-container {
+    @apply w-full bg-white rounded-lg p-2 border border-gray-200;
+    min-height: 300px;
+}
+
+/* Loading indicator */
+.loading {
+    @apply flex items-center justify-center p-4;
+}
+
+.loading::after {
+    content: "";
+    width: 50px;
+    height: 50px;
+    border: 6px solid #ddd;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: loading 1s linear infinite;
+}
+
+@keyframes loading {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Risk profile gauge */
+.risk-gauge {
+    position: relative;
+    width: 200px;
+    height: 120px;
+    margin: 0 auto;
+}
+
+.risk-gauge-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-bottom-left-radius: 200px;
+    border-bottom-right-radius: 200px;
+    border: 10px solid #f3f4f6;
+    border-top: none;
+    box-sizing: border-box;
+}
+
+.risk-gauge-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-bottom-left-radius: 200px;
+    border-bottom-right-radius: 200px;
+    border: 10px solid #3b82f6;
+    border-top: none;
+    box-sizing: border-box;
+    clip-path: polygon(0% 100%, 100% 100%, 100% 50%, 0% 50%);
+    transition: clip-path 1s ease-in-out;
+}
+
+.risk-gauge-needle {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    height: 80px;
+    width: 2px;
+    background-color: #dc2626;
+    transform-origin: bottom center;
+    transform: rotate(0deg);
+    transition: transform 1s ease-in-out;
+}
+
+.risk-gauge-needle::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: -4px;
+    width: 10px;
+    height: 10px;
+    background-color: #dc2626;
+    border-radius: 50%;
+}
+
+/* Scenario buttons */
+.scenario-btn {
+    @apply px-3 py-1 rounded text-sm transition-colors duration-200;
+}
+
+.scenario-btn.active {
+    @apply bg-blue-600 text-white;
+}
+
+.scenario-btn:not(.active) {
+    @apply bg-gray-300 text-gray-800 hover:bg-gray-400;
+}
+
+/* Media queries for responsiveness */
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+        min-height: 250px;
+    }
+    
+    .btn-primary, .btn-secondary {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .flex.justify-between {
+        flex-direction: column;
+    }
+    
+    .flex.justify-between button {
+        margin-bottom: 0.5rem;
+    }
+}
