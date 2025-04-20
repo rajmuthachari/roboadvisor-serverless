@@ -5,335 +5,510 @@
 
 // Global application state
 const appState = {
-    currentSection: 'section-intro',
-    currentQuestionIndex: 0,
-    questionResponses: [],
-    riskProfile: null,
-    riskAversion: null,
-    optimalPortfolio: null,
-    progress: 0,
-    investmentGoals: {
-        type: 'retirement',
-        amount: 100000,
-        timeHorizon: 10,
-        initialInvestment: 10000,
-        monthlyContribution: 500
-    },
-    currentScenario: 'base',
-    knowledgeLevel: null,
-    timeHorizon: null
+  currentSection: "section-intro",
+  currentQuestionIndex: 0,
+  questionResponses: [],
+  riskProfile: null,
+  riskAversion: null,
+  optimalPortfolio: null,
+  progress: 0,
+  investmentGoals: {
+    type: "retirement",
+    amount: 100000,
+    timeHorizon: 10,
+    initialInvestment: 10000,
+    monthlyContribution: 500,
+  },
+  currentScenario: "base",
+  knowledgeLevel: null,
+  timeHorizon: null,
+  dataReady: false,
 };
 
 // When the document is fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize the application
-    initializeApp();
-    
-    // Event listeners for navigation buttons
-    document.getElementById('btn-start-questionnaire').addEventListener('click', () => navigateTo('section-funds'));
-    document.getElementById('btn-view-funds').addEventListener('click', () => navigateTo('section-funds'));
-    document.getElementById('btn-back-to-intro').addEventListener('click', () => navigateTo('section-intro'));
-    document.getElementById('btn-to-questionnaire').addEventListener('click', () => navigateTo('section-questionnaire'));
-    document.getElementById('btn-prev-question').addEventListener('click', handlePrevQuestion);
-    document.getElementById('btn-next-question').addEventListener('click', handleNextQuestion);
-    document.getElementById('btn-retake-questionnaire').addEventListener('click', () => {
-        resetQuestionnaire();
-        navigateTo('section-questionnaire');
+document.addEventListener("DOMContentLoaded", function () {
+  // Show loading state until data is ready
+  showLoadingState();
+
+  // Initialize data first
+  initializeData()
+    .then(() => {
+      // Once data is ready, initialize the application
+      appState.dataReady = true;
+      hideLoadingState();
+      initializeApp();
+    })
+    .catch((error) => {
+      console.error("Failed to initialize data:", error);
+      showErrorState(error);
     });
-    document.getElementById('btn-to-portfolio').addEventListener('click', () => navigateTo('section-portfolio'));
-    document.getElementById('btn-back-to-risk-profile').addEventListener('click', () => navigateTo('section-risk-profile'));
-    document.getElementById('btn-download-report').addEventListener('click', handleDownloadReport);
-    document.getElementById('btn-back-to-portfolio').addEventListener('click', () => navigateTo('section-portfolio'));
-    
-    // Event listeners for modals
-    document.getElementById('btn-open-goal-modal').addEventListener('click', () => {
-        document.getElementById('goal-modal').classList.remove('hidden');
+
+  // Event listeners for navigation buttons
+  document
+    .getElementById("btn-start-questionnaire")
+    .addEventListener("click", () => navigateTo("section-funds"));
+  document
+    .getElementById("btn-view-funds")
+    .addEventListener("click", () => navigateTo("section-funds"));
+  document
+    .getElementById("btn-back-to-intro")
+    .addEventListener("click", () => navigateTo("section-intro"));
+  document
+    .getElementById("btn-to-questionnaire")
+    .addEventListener("click", () => navigateTo("section-questionnaire"));
+  document
+    .getElementById("btn-prev-question")
+    .addEventListener("click", handlePrevQuestion);
+  document
+    .getElementById("btn-next-question")
+    .addEventListener("click", handleNextQuestion);
+  document
+    .getElementById("btn-retake-questionnaire")
+    .addEventListener("click", () => {
+      resetQuestionnaire();
+      navigateTo("section-questionnaire");
     });
-    document.getElementById('btn-close-goal-modal').addEventListener('click', () => {
-        document.getElementById('goal-modal').classList.add('hidden');
+  document
+    .getElementById("btn-to-portfolio")
+    .addEventListener("click", () => navigateTo("section-portfolio"));
+  document
+    .getElementById("btn-back-to-risk-profile")
+    .addEventListener("click", () => navigateTo("section-risk-profile"));
+  document
+    .getElementById("btn-download-report")
+    .addEventListener("click", handleDownloadReport);
+  document
+    .getElementById("btn-back-to-portfolio")
+    .addEventListener("click", () => navigateTo("section-portfolio"));
+
+  // Event listeners for modals
+  document
+    .getElementById("btn-open-goal-modal")
+    .addEventListener("click", () => {
+      document.getElementById("goal-modal").classList.remove("hidden");
     });
-    document.getElementById('btn-open-methodology').addEventListener('click', () => navigateTo('section-methodology'));
-    
-    // Event listeners for forms
-    document.getElementById('goal-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveGoals();
-        document.getElementById('goal-modal').classList.add('hidden');
+  document
+    .getElementById("btn-close-goal-modal")
+    .addEventListener("click", () => {
+      document.getElementById("goal-modal").classList.add("hidden");
     });
-    
-    // Event listeners for sorting
-    document.getElementById('btn-sort-return').addEventListener('click', () => sortFunds('annualizedReturn', true));
-    document.getElementById('btn-sort-risk').addEventListener('click', () => sortFunds('annualizedVolatility', false));
-    document.getElementById('btn-sort-sharpe').addEventListener('click', () => sortFunds('sharpeRatio', true));
-    
-    // Event listeners for scenarios
-    document.querySelectorAll('.scenario-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const scenario = this.dataset.scenario;
-            changeScenario(scenario);
-        });
+  document
+    .getElementById("btn-open-methodology")
+    .addEventListener("click", () => navigateTo("section-methodology"));
+
+  // Event listeners for forms
+  document.getElementById("goal-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    saveGoals();
+    document.getElementById("goal-modal").classList.add("hidden");
+  });
+
+  // Event listeners for sorting
+  document
+    .getElementById("btn-sort-return")
+    .addEventListener("click", () => sortFunds("annualizedReturn", true));
+  document
+    .getElementById("btn-sort-risk")
+    .addEventListener("click", () => sortFunds("annualizedVolatility", false));
+  document
+    .getElementById("btn-sort-sharpe")
+    .addEventListener("click", () => sortFunds("sharpeRatio", true));
+
+  // Event listeners for scenarios
+  document.querySelectorAll(".scenario-btn").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const scenario = this.dataset.scenario;
+      changeScenario(scenario);
     });
-    
-    // Event listener for time horizon slider
-    document.getElementById('goal-time-horizon').addEventListener('input', function() {
-        document.getElementById('time-horizon-value').textContent = `${this.value} years`;
+  });
+
+  // Event listener for time horizon slider
+  document
+    .getElementById("goal-time-horizon")
+    .addEventListener("input", function () {
+      document.getElementById(
+        "time-horizon-value"
+      ).textContent = `${this.value} years`;
     });
 });
 
+// Show loading state
+function showLoadingState() {
+  // Create loading overlay if it doesn't exist
+  if (!document.getElementById("loading-overlay")) {
+    const loadingOverlay = document.createElement("div");
+    loadingOverlay.id = "loading-overlay";
+    loadingOverlay.className =
+      "fixed inset-0 bg-blue-800 bg-opacity-90 flex items-center justify-center z-50";
+    loadingOverlay.innerHTML = `
+            <div class="bg-white p-8 rounded-lg shadow-xl text-center">
+                <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-solid mx-auto mb-4"></div>
+                <h2 class="text-2xl font-bold mb-2">Initializing Portfolio Engine</h2>
+                <p class="text-gray-600 mb-2">Please wait while we prepare your personalized portfolio advisor.</p>
+                <p class="text-sm text-gray-500">Loading financial data and optimization models...</p>
+            </div>
+        `;
+    document.body.appendChild(loadingOverlay);
+  } else {
+    document.getElementById("loading-overlay").classList.remove("hidden");
+  }
+}
+
+// Hide loading state
+function hideLoadingState() {
+  const loadingOverlay = document.getElementById("loading-overlay");
+  if (loadingOverlay) {
+    loadingOverlay.classList.add("hidden");
+  }
+}
+
+// Show error state
+function showErrorState(error) {
+  const loadingOverlay = document.getElementById("loading-overlay");
+  if (loadingOverlay) {
+    loadingOverlay.innerHTML = `
+            <div class="bg-white p-8 rounded-lg shadow-xl text-center">
+                <div class="bg-red-100 p-4 rounded-full mx-auto mb-4 w-16 h-16 flex items-center justify-center">
+                    <svg class="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold mb-2 text-red-600">Initialization Error</h2>
+                <p class="text-gray-600 mb-4">Sorry, we encountered an error while setting up your portfolio advisor.</p>
+                <p class="text-sm text-gray-500 mb-4">Technical details: ${
+                  error.message || "Unknown error"
+                }</p>
+                <button onclick="location.reload()" class="bg-blue-600 text-white px-4 py-2 rounded">Retry</button>
+            </div>
+        `;
+  }
+}
+
 // Initialize the application
 function initializeApp() {
-    // Populate fund cards
-    populateFundCards();
-    
-    // Create correlation heatmap
-    createCorrelationHeatmap();
-    
-    // Create risk-return scatter plot
-    createRiskReturnScatter();
-    
-    // Initialize the questionnaire
-    showCurrentQuestion();
-    
-    // Update progress
-    updateProgress(0);
+  // Populate fund cards
+  populateFundCards();
+
+  // Create correlation heatmap
+  createCorrelationHeatmap();
+
+  // Create risk-return scatter plot
+  createRiskReturnScatter();
+
+  // Initialize the questionnaire
+  showCurrentQuestion();
+
+  // Update progress
+  updateProgress(0);
 }
 
 // Navigate to a section
 function navigateTo(sectionId) {
-    // Hide current section
-    document.getElementById(appState.currentSection).classList.remove('active');
-    
-    // Show new section
-    document.getElementById(sectionId).classList.add('active');
-    
-    // Update state
-    appState.currentSection = sectionId;
-    
-    // Perform section-specific actions
-    switch(sectionId) {
-        case 'section-questionnaire':
-            updateProgress(20);
-            break;
-        case 'section-risk-profile':
-            updateProgress(60);
-            if (appState.questionResponses.length === questionnaireData.questions.length) {
-                calculateRiskProfile();
-            }
-            break;
-        case 'section-portfolio':
-            updateProgress(80);
-            if (appState.riskAversion) {
-                calculateOptimalPortfolio();
-            }
-            break;
-        case 'section-methodology':
-            updateProgress(100);
-            break;
-        case 'section-funds':
-            updateProgress(10);
-            break;
-        case 'section-intro':
-            updateProgress(0);
-            break;
-    }
+  // Make sure data is ready before navigating
+  if (!appState.dataReady && sectionId !== "section-intro") {
+    console.warn("Data not yet ready, cannot navigate to", sectionId);
+    return;
+  }
+
+  // Hide current section
+  document.getElementById(appState.currentSection).classList.remove("active");
+
+  // Show new section
+  document.getElementById(sectionId).classList.add("active");
+
+  // Update state
+  appState.currentSection = sectionId;
+
+  // Perform section-specific actions
+  switch (sectionId) {
+    case "section-questionnaire":
+      updateProgress(20);
+      break;
+    case "section-risk-profile":
+      updateProgress(60);
+      if (
+        appState.questionResponses.length === questionnaireData.questions.length
+      ) {
+        calculateRiskProfile();
+      }
+      break;
+    case "section-portfolio":
+      updateProgress(80);
+      if (appState.riskAversion) {
+        calculateOptimalPortfolioFromRiskAversion();
+      }
+      break;
+    case "section-methodology":
+      updateProgress(100);
+      break;
+    case "section-funds":
+      updateProgress(10);
+      break;
+    case "section-intro":
+      updateProgress(0);
+      break;
+  }
 }
 
 // Update progress bar
 function updateProgress(progress) {
-    appState.progress = progress;
-    
-    // Update progress bar
-    document.getElementById('progress-bar').style.width = `${progress}%`;
-    document.getElementById('progress-percentage').textContent = `${progress}%`;
-    
-    // Update progress text
-    let progressText;
-    if (progress === 0) progressText = "Step 1: Introduction";
-    else if (progress < 20) progressText = "Step 2: Fund Information";
-    else if (progress < 60) progressText = "Step 3: Risk Profiling";
-    else if (progress < 80) progressText = "Step 4: Risk Profile Results";
-    else if (progress < 100) progressText = "Step 5: Portfolio Recommendations";
-    else progressText = "Step 6: Methodology";
-    
-    document.getElementById('progress-text').textContent = progressText;
+  appState.progress = progress;
+
+  // Update progress bar
+  document.getElementById("progress-bar").style.width = `${progress}%`;
+  document.getElementById("progress-percentage").textContent = `${progress}%`;
+
+  // Update progress text
+  let progressText;
+  if (progress === 0) progressText = "Step 1: Introduction";
+  else if (progress < 20) progressText = "Step 2: Fund Information";
+  else if (progress < 60) progressText = "Step 3: Risk Profiling";
+  else if (progress < 80) progressText = "Step 4: Risk Profile Results";
+  else if (progress < 100) progressText = "Step 5: Portfolio Recommendations";
+  else progressText = "Step 6: Methodology";
+
+  document.getElementById("progress-text").textContent = progressText;
 }
 
 // Populate fund cards
 function populateFundCards() {
-    const container = document.getElementById('fund-cards-container');
-    container.innerHTML = '';
-    
-    const fundNames = Object.keys(fundData);
-    
-    fundNames.forEach(fundName => {
-        const fund = fundData[fundName];
-        const card = document.createElement('div');
-        card.className = 'fund-card';
-        
-        // Set background color based on asset class
-        let bgColor = 'bg-white';
-        if (fund.assetClass.includes('Equity')) bgColor = 'bg-blue-50';
-        else if (fund.assetClass.includes('Fixed Income')) bgColor = 'bg-green-50';
-        else if (fund.assetClass.includes('Real Estate')) bgColor = 'bg-yellow-50';
-        
-        card.classList.add(bgColor);
-        
-        // Create card content
-        card.innerHTML = `
+  const container = document.getElementById("fund-cards-container");
+  container.innerHTML = "";
+
+  const fundNames = Object.keys(fundData);
+
+  fundNames.forEach((fundName) => {
+    const fund = fundData[fundName];
+    const card = document.createElement("div");
+    card.className = "fund-card";
+
+    // Set background color based on asset class
+    let bgColor = "bg-white";
+    if (fund.assetClass.includes("Equity")) bgColor = "bg-blue-50";
+    else if (fund.assetClass.includes("Fixed Income")) bgColor = "bg-green-50";
+    else if (fund.assetClass.includes("Real Estate")) bgColor = "bg-yellow-50";
+    else if (fund.assetClass.includes("Alternative")) bgColor = "bg-purple-50";
+
+    card.classList.add(bgColor);
+
+    // Create card content
+    card.innerHTML = `
             <h4 class="font-semibold text-md mb-2">${fundName}</h4>
             <div class="text-xs text-gray-500 mb-2">${fund.assetClass}</div>
             <div class="grid grid-cols-2 gap-1 mb-2">
                 <div>
                     <div class="text-xs text-gray-500">Annual Return</div>
-                    <div class="font-medium ${fund.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}">
+                    <div class="font-medium ${
+                      fund.annualizedReturn >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }">
                         ${(fund.annualizedReturn * 100).toFixed(2)}%
                     </div>
                 </div>
                 <div>
                     <div class="text-xs text-gray-500">Volatility</div>
-                    <div class="font-medium">${(fund.annualizedVolatility * 100).toFixed(2)}%</div>
+                    <div class="font-medium">${(
+                      fund.annualizedVolatility * 100
+                    ).toFixed(2)}%</div>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-1 mb-2">
                 <div>
                     <div class="text-xs text-gray-500">Sharpe Ratio</div>
-                    <div class="font-medium ${fund.sharpeRatio >= 0 ? 'text-green-600' : 'text-red-600'}">
+                    <div class="font-medium ${
+                      fund.sharpeRatio >= 0 ? "text-green-600" : "text-red-600"
+                    }">
                         ${fund.sharpeRatio.toFixed(2)}
                     </div>
                 </div>
                 <div>
                     <div class="text-xs text-gray-500">Max Drawdown</div>
-                    <div class="font-medium text-red-600">${(fund.maxDrawdown * 100).toFixed(2)}%</div>
+                    <div class="font-medium text-red-600">${(
+                      fund.maxDrawdown * 100
+                    ).toFixed(2)}%</div>
                 </div>
             </div>
             <div class="text-xs text-gray-600 mb-2">
                 <div class="tooltip">
-                    <span>Expense Ratio: ${(fund.expenseRatio * 100).toFixed(2)}%</span>
+                    <span>Expense Ratio: ${(fund.expenseRatio * 100).toFixed(
+                      2
+                    )}%</span>
                     <span class="tooltip-text">Annual fee charged by the fund manager</span>
                 </div>
             </div>
-            <p class="text-xs text-gray-600 line-clamp-2">${fund.description}</p>
+            <p class="text-xs text-gray-600 line-clamp-2">${
+              fund.description
+            }</p>
         `;
-        
-        container.appendChild(card);
-    });
+
+    container.appendChild(card);
+  });
 }
 
 // Sort funds by a specific metric
 function sortFunds(metric, descending = true) {
-    const container = document.getElementById('fund-cards-container');
-    const cards = Array.from(container.children);
-    
-    // Sort the cards based on the fund data
-    cards.sort((a, b) => {
-        const fundNameA = a.querySelector('h4').textContent;
-        const fundNameB = b.querySelector('h4').textContent;
-        
-        const valueA = fundData[fundNameA][metric];
-        const valueB = fundData[fundNameB][metric];
-        
-        return descending ? valueB - valueA : valueA - valueB;
-    });
-    
-    // Re-append the cards in the sorted order
-    cards.forEach(card => container.appendChild(card));
+  const container = document.getElementById("fund-cards-container");
+  const cards = Array.from(container.children);
+
+  // Sort the cards based on the fund data
+  cards.sort((a, b) => {
+    const fundNameA = a.querySelector("h4").textContent;
+    const fundNameB = b.querySelector("h4").textContent;
+
+    const valueA = fundData[fundNameA][metric];
+    const valueB = fundData[fundNameB][metric];
+
+    return descending ? valueB - valueA : valueA - valueB;
+  });
+
+  // Re-append the cards in the sorted order
+  cards.forEach((card) => container.appendChild(card));
 }
 
 // Calculate optimal portfolio based on risk aversion
-function calculateOptimalPortfolio() {
-    const fundNames = Object.keys(fundData);
-    const numAssets = fundNames.length;
-    
-    // Extract annualized returns
-    const meanReturns = fundNames.map(fund => fundData[fund].annualizedReturn);
-    
-    // Calculate optimal portfolio
-    const optimalWeights = optimizePortfolio(meanReturns, covarianceMatrix, appState.riskAversion);
-    
-    // Calculate portfolio statistics
-    const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
-    const portfolioVolatility = calculatePortfolioVolatility(covarianceMatrix, optimalWeights);
-    const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility; // Assuming 3% risk-free rate
-    
-    // Filter for significant allocations (> 1%)
-    const significantAllocations = {};
-    let totalSignificant = 0;
-    
-    for (let i = 0; i < numAssets; i++) {
-        if (optimalWeights[i] > 0.01) {
-            significantAllocations[fundNames[i]] = optimalWeights[i];
-            totalSignificant += optimalWeights[i];
-        }
-    }
-    
-    // Normalize significant allocations
-    for (const fund in significantAllocations) {
-        significantAllocations[fund] = significantAllocations[fund] / totalSignificant;
-    }
-    
-    // Update application state
-    appState.optimalPortfolio = {
-        fullAllocation: optimalWeights.map((weight, i) => ({ fund: fundNames[i], weight })),
-        recommendedAllocation: Object.entries(significantAllocations).map(([fund, weight]) => ({ fund, weight })),
+function calculateOptimalPortfolioFromRiskAversion() {
+  const fundNames = Object.keys(fundData);
+  const numAssets = fundNames.length;
+
+  // Show loading indicator
+  const loadingIndicator = document.createElement("div");
+  loadingIndicator.className =
+    "fixed top-0 left-0 w-full h-1 bg-blue-600 animate-pulse";
+  document.body.appendChild(loadingIndicator);
+
+  // Extract annualized returns and use the calculated covariance matrix
+  const meanReturns = {};
+  fundNames.forEach((fund, i) => {
+    meanReturns[fund] = fundData[fund].annualizedReturn;
+  });
+
+  // Use a setTimeout to allow the UI to update before running calculations
+  setTimeout(() => {
+    try {
+      // Calculate optimal portfolio using the efficient frontier utility function
+      const optimalPortfolio = calculateOptimalPortfolio(
+        meanReturns,
+        covarianceMatrix,
+        appState.riskAversion
+      );
+
+      // Create portfolio object with weights mapped to fund names
+      const portfolioAllocation = fundNames.map((fund, i) => ({
+        fund,
+        weight: optimalPortfolio.weights[i],
+      }));
+
+      // Filter for significant allocations (> 1%)
+      const significantAllocations = portfolioAllocation
+        .filter((item) => item.weight > 0.01)
+        .sort((a, b) => b.weight - a.weight);
+
+      // Normalize significant allocations to sum to 1
+      const totalSignificantWeight = significantAllocations.reduce(
+        (sum, item) => sum + item.weight,
+        0
+      );
+      const normalizedSignificantAllocations = significantAllocations.map(
+        (item) => ({
+          fund: item.fund,
+          weight: item.weight / totalSignificantWeight,
+        })
+      );
+
+      // Update application state
+      appState.optimalPortfolio = {
+        fullAllocation: portfolioAllocation,
+        recommendedAllocation: normalizedSignificantAllocations,
         stats: {
-            return: portfolioReturn,
-            volatility: portfolioVolatility,
-            sharpeRatio: portfolioSharpeRatio
-        }
-    };
-    
-    // Update UI
-    updatePortfolioUI();
+          return: optimalPortfolio.return,
+          volatility: optimalPortfolio.volatility,
+          sharpeRatio:
+            (optimalPortfolio.return - 0.03) / optimalPortfolio.volatility,
+        },
+      };
+
+      // Update UI
+      updatePortfolioUI();
+    } catch (error) {
+      console.error("Error calculating optimal portfolio:", error);
+      alert("Error calculating optimal portfolio. Please try again.");
+    } finally {
+      // Remove loading indicator
+      if (loadingIndicator.parentNode) {
+        loadingIndicator.parentNode.removeChild(loadingIndicator);
+      }
+    }
+  }, 100);
 }
 
 // Update portfolio UI
 function updatePortfolioUI() {
-    // Update portfolio information
-    document.getElementById('portfolio-risk-profile').textContent = appState.riskProfile;
-    document.getElementById('portfolio-return').textContent = `${(appState.optimalPortfolio.stats.return * 100).toFixed(2)}%`;
-    document.getElementById('portfolio-risk').textContent = `${(appState.optimalPortfolio.stats.volatility * 100).toFixed(2)}%`;
-    document.getElementById('portfolio-sharpe').textContent = appState.optimalPortfolio.stats.sharpeRatio.toFixed(2);
-    
-    // Update portfolio allocation chart
-    createPortfolioAllocationChart();
-    
-    // Update allocation table
-    updateAllocationTable();
-    
-    // Create efficient frontier chart
-    createEfficientFrontierChart();
-    
-    // Create projection chart
-    createProjectionChart(appState.currentScenario);
-    
-    // Update investment recommendation
-    const investmentRecommendation = document.getElementById('investment-recommendation');
-    investmentRecommendation.innerHTML = `
-        <p class="mb-3">Based on your <strong>${appState.riskProfile}</strong> risk profile and investment goals, we recommend the following optimized portfolio allocation:</p>
+  // Update portfolio information
+  document.getElementById("portfolio-risk-profile").textContent =
+    appState.riskProfile;
+  document.getElementById("portfolio-return").textContent = `${(
+    appState.optimalPortfolio.stats.return * 100
+  ).toFixed(2)}%`;
+  document.getElementById("portfolio-risk").textContent = `${(
+    appState.optimalPortfolio.stats.volatility * 100
+  ).toFixed(2)}%`;
+  document.getElementById("portfolio-sharpe").textContent =
+    appState.optimalPortfolio.stats.sharpeRatio.toFixed(2);
+
+  // Update portfolio allocation chart
+  createPortfolioAllocationChart();
+
+  // Update allocation table
+  updateAllocationTable();
+
+  // Create efficient frontier chart
+  createEfficientFrontierChart();
+
+  // Create projection chart
+  createProjectionChart(appState.currentScenario);
+
+  // Update investment recommendation
+  const investmentRecommendation = document.getElementById(
+    "investment-recommendation"
+  );
+  investmentRecommendation.innerHTML = `
+        <p class="mb-3">Based on your <strong>${
+          appState.riskProfile
+        }</strong> risk profile and investment goals, we recommend the following optimized portfolio allocation:</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
             ${appState.optimalPortfolio.recommendedAllocation
-                .map(item => `
+              .map(
+                (item) => `
                     <div class="bg-white p-2 rounded border border-gray-200">
                         <div class="font-semibold">${item.fund}</div>
-                        <div class="text-blue-600 font-bold">${(item.weight * 100).toFixed(2)}%</div>
+                        <div class="text-blue-600 font-bold">${(
+                          item.weight * 100
+                        ).toFixed(2)}%</div>
                     </div>
-                `)
-                .join('')}
+                `
+              )
+              .join("")}
         </div>
-        <p class="mb-3">This portfolio is optimized to provide the best expected return for your level of risk tolerance, with an expected annual return of ${(appState.optimalPortfolio.stats.return * 100).toFixed(2)}% and volatility of ${(appState.optimalPortfolio.stats.volatility * 100).toFixed(2)}%.</p>
+        <p class="mb-3">This portfolio is optimized to provide the best expected return for your level of risk tolerance, with an expected annual return of ${(
+          appState.optimalPortfolio.stats.return * 100
+        ).toFixed(2)}% and volatility of ${(
+    appState.optimalPortfolio.stats.volatility * 100
+  ).toFixed(2)}%.</p>
         <p>For best results, we recommend rebalancing this portfolio annually to maintain the target allocation. As your financial situation or goals change, you should reassess your risk profile and adjust your portfolio accordingly.</p>
     `;
 }
 
 // Update allocation table
 function updateAllocationTable() {
-    const allocationTable = document.getElementById('allocation-table');
-    
-    // Sort allocations by weight
-    const sortedAllocations = [...appState.optimalPortfolio.recommendedAllocation]
-        .sort((a, b) => b.weight - a.weight);
-    
-    let tableHTML = `
+  const allocationTable = document.getElementById("allocation-table");
+
+  // Sort allocations by weight
+  const sortedAllocations = [
+    ...appState.optimalPortfolio.recommendedAllocation,
+  ].sort((a, b) => b.weight - a.weight);
+
+  let tableHTML = `
         <table class="w-full text-sm">
             <thead>
                 <tr class="border-b border-gray-300">
@@ -343,38 +518,43 @@ function updateAllocationTable() {
             </thead>
             <tbody>
     `;
-    
-    // Add rows for each fund
-    sortedAllocations.forEach(item => {
-        const fund = fundData[item.fund];
-        const assetClass = fund.assetClass;
-        
-        // Determine color based on asset class
-        let colorClass = '';
-        if (assetClass.includes('Equity')) colorClass = 'text-blue-600';
-        else if (assetClass.includes('Fixed Income')) colorClass = 'text-green-600';
-        else if (assetClass.includes('Real Estate')) colorClass = 'text-yellow-600';
-        
-        tableHTML += `
+
+  // Add rows for each fund
+  sortedAllocations.forEach((item) => {
+    const fund = fundData[item.fund];
+    const assetClass = fund.assetClass;
+
+    // Determine color based on asset class
+    let colorClass = "";
+    if (assetClass.includes("Equity")) colorClass = "text-blue-600";
+    else if (assetClass.includes("Fixed Income")) colorClass = "text-green-600";
+    else if (assetClass.includes("Real Estate")) colorClass = "text-yellow-600";
+    else if (assetClass.includes("Alternative")) colorClass = "text-purple-600";
+
+    tableHTML += `
             <tr class="border-b border-gray-200">
                 <td class="py-2">
                     <div>${item.fund}</div>
                     <div class="text-xs text-gray-500">${assetClass}</div>
                 </td>
                 <td class="py-2 text-right">
-                    <div class="font-bold ${colorClass}">${(item.weight * 100).toFixed(2)}%</div>
-                    <div class="text-xs text-gray-500">Exp. Ratio: ${(fund.expenseRatio * 100).toFixed(2)}%</div>
+                    <div class="font-bold ${colorClass}">${(
+      item.weight * 100
+    ).toFixed(2)}%</div>
+                    <div class="text-xs text-gray-500">Exp. Ratio: ${(
+                      fund.expenseRatio * 100
+                    ).toFixed(2)}%</div>
                 </td>
             </tr>
         `;
-    });
-    
-    // Calculate weighted expense ratio
-    const weightedExpenseRatio = sortedAllocations.reduce((sum, item) => {
-        return sum + (item.weight * fundData[item.fund].expenseRatio);
-    }, 0);
-    
-    tableHTML += `
+  });
+
+  // Calculate weighted expense ratio
+  const weightedExpenseRatio = sortedAllocations.reduce((sum, item) => {
+    return sum + item.weight * fundData[item.fund].expenseRatio;
+  }, 0);
+
+  tableHTML += `
             </tbody>
             <tfoot>
                 <tr class="bg-gray-50">
@@ -383,132 +563,184 @@ function updateAllocationTable() {
                 </tr>
                 <tr class="bg-gray-50">
                     <td class="py-2">Weighted Expense Ratio</td>
-                    <td class="py-2 text-right">${(weightedExpenseRatio * 100).toFixed(3)}%</td>
+                    <td class="py-2 text-right">${(
+                      weightedExpenseRatio * 100
+                    ).toFixed(3)}%</td>
                 </tr>
             </tfoot>
         </table>
     `;
-    
-    allocationTable.innerHTML = tableHTML;
+
+  allocationTable.innerHTML = tableHTML;
 }
 
 // Change the projection scenario
 function changeScenario(scenario) {
-    // Update scenario buttons
-    document.querySelectorAll('.scenario-btn').forEach(btn => {
-        if (btn.dataset.scenario === scenario) {
-            btn.classList.add('bg-blue-600', 'text-white');
-            btn.classList.remove('bg-gray-300', 'text-gray-800');
-        } else {
-            btn.classList.remove('bg-blue-600', 'text-white');
-            btn.classList.add('bg-gray-300', 'text-gray-800');
-        }
-    });
-    
-    // Update state
-    appState.currentScenario = scenario;
-    
-    // Update projection chart
-    createProjectionChart(scenario);
+  // Update scenario buttons
+  document.querySelectorAll(".scenario-btn").forEach((btn) => {
+    if (btn.dataset.scenario === scenario) {
+      btn.classList.add("bg-blue-600", "text-white");
+      btn.classList.remove("bg-gray-300", "text-gray-800");
+    } else {
+      btn.classList.remove("bg-blue-600", "text-white");
+      btn.classList.add("bg-gray-300", "text-gray-800");
+    }
+  });
+
+  // Update state
+  appState.currentScenario = scenario;
+
+  // Update projection chart
+  createProjectionChart(scenario);
 }
 
 // Save investment goals from form
 function saveGoals() {
-    // Get values from form
-    const goalType = document.getElementById('goal-type').value;
-    const goalAmount = parseInt(document.getElementById('goal-amount').value) || 100000;
-    const timeHorizon = parseInt(document.getElementById('goal-time-horizon').value) || 10;
-    const initialInvestment = parseInt(document.getElementById('goal-initial').value) || 10000;
-    const monthlyContribution = parseInt(document.getElementById('goal-monthly').value) || 500;
-    
-    // Update state
-    appState.investmentGoals = {
-        type: goalType,
-        amount: goalAmount,
-        timeHorizon: timeHorizon,
-        initialInvestment: initialInvestment,
-        monthlyContribution: monthlyContribution
-    };
-    
-    // If portfolio has been calculated, update projection
-    if (appState.optimalPortfolio) {
-        createProjectionChart(appState.currentScenario);
-    }
+  // Get values from form
+  const goalType = document.getElementById("goal-type").value;
+  const goalAmount =
+    parseInt(document.getElementById("goal-amount").value) || 100000;
+  const timeHorizon =
+    parseInt(document.getElementById("goal-time-horizon").value) || 10;
+  const initialInvestment =
+    parseInt(document.getElementById("goal-initial").value) || 10000;
+  const monthlyContribution =
+    parseInt(document.getElementById("goal-monthly").value) || 500;
+
+  // Update state
+  appState.investmentGoals = {
+    type: goalType,
+    amount: goalAmount,
+    timeHorizon: timeHorizon,
+    initialInvestment: initialInvestment,
+    monthlyContribution: monthlyContribution,
+  };
+
+  // If portfolio has been calculated, update projection
+  if (appState.optimalPortfolio) {
+    createProjectionChart(appState.currentScenario);
+  }
 }
 
 // Handle download report
 function handleDownloadReport() {
-    // Use jsPDF to create a PDF report
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Add title
-    doc.setFontSize(20);
-    doc.text('Portfolio Optimization Report', 105, 15, { align: 'center' });
-    
-    // Add date
-    doc.setFontSize(10);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, { align: 'center' });
-    
-    // Add risk profile section
-    doc.setFontSize(16);
-    doc.text('Risk Profile', 14, 35);
-    
-    doc.setFontSize(12);
-    doc.text(`Profile: ${appState.riskProfile}`, 14, 45);
-    doc.text(`Risk Aversion Parameter: ${appState.riskAversion}`, 14, 52);
-    doc.text(`Time Horizon: ${appState.timeHorizon}`, 14, 59);
-    doc.text(`Investment Knowledge: ${appState.knowledgeLevel}`, 14, 66);
-    
-    // Add recommended allocation section
-    doc.setFontSize(16);
-    doc.text('Recommended Portfolio Allocation', 14, 80);
-    
-    doc.setFontSize(12);
-    let y = 90;
-    
-    appState.optimalPortfolio.recommendedAllocation.forEach(item => {
-        doc.text(`${item.fund}: ${(item.weight * 100).toFixed(2)}%`, 14, y);
-        y += 7;
-    });
-    
-    // Add portfolio statistics
-    doc.setFontSize(16);
-    doc.text('Portfolio Statistics', 14, y + 10);
-    
-    doc.setFontSize(12);
-    y += 20;
-    doc.text(`Expected Annual Return: ${(appState.optimalPortfolio.stats.return * 100).toFixed(2)}%`, 14, y);
+  // Use jsPDF to create a PDF report
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Add title
+  doc.setFontSize(20);
+  doc.text("Portfolio Optimization Report", 105, 15, { align: "center" });
+
+  // Add date
+  doc.setFontSize(10);
+  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, {
+    align: "center",
+  });
+
+  // Add risk profile section
+  doc.setFontSize(16);
+  doc.text("Risk Profile", 14, 35);
+
+  doc.setFontSize(12);
+  doc.text(`Profile: ${appState.riskProfile}`, 14, 45);
+  doc.text(`Risk Aversion Parameter: ${appState.riskAversion}`, 14, 52);
+  doc.text(`Time Horizon: ${appState.timeHorizon}`, 14, 59);
+  doc.text(`Investment Knowledge: ${appState.knowledgeLevel}`, 14, 66);
+
+  // Add recommended allocation section
+  doc.setFontSize(16);
+  doc.text("Recommended Portfolio Allocation", 14, 80);
+
+  doc.setFontSize(12);
+  let y = 90;
+
+  appState.optimalPortfolio.recommendedAllocation.forEach((item) => {
+    doc.text(`${item.fund}: ${(item.weight * 100).toFixed(2)}%`, 14, y);
     y += 7;
-    doc.text(`Expected Annual Volatility: ${(appState.optimalPortfolio.stats.volatility * 100).toFixed(2)}%`, 14, y);
-    y += 7;
-    doc.text(`Sharpe Ratio: ${appState.optimalPortfolio.stats.sharpeRatio.toFixed(2)}`, 14, y);
-    
-    // Add investment goals section
-    doc.setFontSize(16);
-    y += 17;
-    doc.text('Investment Goals', 14, y);
-    
-    doc.setFontSize(12);
-    y += 10;
-    doc.text(`Goal Type: ${appState.investmentGoals.type}`, 14, y);
-    y += 7;
-    doc.text(`Target Amount: ${appState.investmentGoals.amount.toLocaleString()}`, 14, y);
-    y += 7;
-    doc.text(`Time Horizon: ${appState.investmentGoals.timeHorizon} years`, 14, y);
-    y += 7;
-    doc.text(`Initial Investment: ${appState.investmentGoals.initialInvestment.toLocaleString()}`, 14, y);
-    y += 7;
-    doc.text(`Monthly Contribution: ${appState.investmentGoals.monthlyContribution.toLocaleString()}`, 14, y);
-    
-    // Add disclaimer
-    y += 20;
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text('DISCLAIMER: This report is for educational purposes only. Past performance is not indicative of future results.', 14, y);
-    y += 5;
-    doc.text('All investments involve risk and may result in loss of principal. Consult with a qualified financial advisor before making investment decisions.', 14, y);
-    
-    // Save the PDF
-    doc.save(`portfolio_report_${appState.riskProfile.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+  });
+
+  // Add portfolio statistics
+  doc.setFontSize(16);
+  doc.text("Portfolio Statistics", 14, y + 10);
+
+  doc.setFontSize(12);
+  y += 20;
+  doc.text(
+    `Expected Annual Return: ${(
+      appState.optimalPortfolio.stats.return * 100
+    ).toFixed(2)}%`,
+    14,
+    y
+  );
+  y += 7;
+  doc.text(
+    `Expected Annual Volatility: ${(
+      appState.optimalPortfolio.stats.volatility * 100
+    ).toFixed(2)}%`,
+    14,
+    y
+  );
+  y += 7;
+  doc.text(
+    `Sharpe Ratio: ${appState.optimalPortfolio.stats.sharpeRatio.toFixed(2)}`,
+    14,
+    y
+  );
+
+  // Add investment goals section
+  doc.setFontSize(16);
+  y += 17;
+  doc.text("Investment Goals", 14, y);
+
+  doc.setFontSize(12);
+  y += 10;
+  doc.text(`Goal Type: ${appState.investmentGoals.type}`, 14, y);
+  y += 7;
+  doc.text(
+    `Target Amount: ${appState.investmentGoals.amount.toLocaleString()}`,
+    14,
+    y
+  );
+  y += 7;
+  doc.text(
+    `Time Horizon: ${appState.investmentGoals.timeHorizon} years`,
+    14,
+    y
+  );
+  y += 7;
+  doc.text(
+    `Initial Investment: ${appState.investmentGoals.initialInvestment.toLocaleString()}`,
+    14,
+    y
+  );
+  y += 7;
+  doc.text(
+    `Monthly Contribution: ${appState.investmentGoals.monthlyContribution.toLocaleString()}`,
+    14,
+    y
+  );
+
+  // Add disclaimer
+  y += 20;
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text(
+    "DISCLAIMER: This report is for educational purposes only. Past performance is not indicative of future results.",
+    14,
+    y
+  );
+  y += 5;
+  doc.text(
+    "All investments involve risk and may result in loss of principal. Consult with a qualified financial advisor before making investment decisions.",
+    14,
+    y
+  );
+
+  // Save the PDF
+  doc.save(
+    `portfolio_report_${appState.riskProfile
+      .toLowerCase()
+      .replace(/\s+/g, "_")}.pdf`
+  );
 }
