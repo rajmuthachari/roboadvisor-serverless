@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>PortfolioPilot Robo Advisor</title>
     <!-- External Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -12,457 +12,854 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body class="bg-gray-100 min-h-screen">
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-gray-100 min-h-screen">
     <header class="bg-blue-800 text-white p-6 shadow-md">
-        <div class="container mx-auto flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold">PortfolioPilot Robo Advisor</h1>
-                <p class="text-xl">Intelligent Portfolio Optimization</p>
-            </div>
-            <div class="flex space-x-4">
-                <button id="btn-open-goal-modal" class="bg-white text-blue-800 py-2 px-4 rounded-full font-semibold hover:bg-blue-100 transition">
-                    <i class="fas fa-target"></i> Set Goals
-                </button>
-                <button id="btn-open-methodology" class="bg-white text-blue-800 py-2 px-4 rounded-full font-semibold hover:bg-blue-100 transition">
-                    <i class="fas fa-book"></i> Methodology
-                </button>
-            </div>
+      <div class="container mx-auto flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold">PortfolioPilot Robo Advisor</h1>
+          <p class="text-xl">Intelligent Portfolio Optimization</p>
         </div>
+        <div class="flex space-x-4">
+          <button
+            id="btn-open-goal-modal"
+            class="bg-white text-blue-800 py-2 px-4 rounded-full font-semibold hover:bg-blue-100 transition"
+          >
+            <i class="fas fa-target"></i> Set Goals
+          </button>
+          <button
+            id="btn-open-methodology"
+            class="bg-white text-blue-800 py-2 px-4 rounded-full font-semibold hover:bg-blue-100 transition"
+          >
+            <i class="fas fa-book"></i> Methodology
+          </button>
+          <!-- Add this button below the existing buttons in the header section -->
+          <button
+            id="btn-view-efficient-frontier"
+            class="bg-white text-blue-800 py-2 px-4 rounded-full font-semibold hover:bg-blue-100 transition"
+          >
+            <i class="fas fa-chart-line"></i> Advanced Frontier Analysis
+          </button>
+        </div>
+      </div>
     </header>
 
     <main class="container mx-auto p-6">
-        <!-- Progress Indicator -->
-        <div class="mb-10">
-            <div class="relative pt-1">
-                <div class="flex mb-2 items-center justify-between">
-                    <div>
-                        <span id="progress-text" class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
-                            Step 1: Introduction
-                        </span>
-                    </div>
-                    <div class="text-right">
-                        <span id="progress-percentage" class="text-xs font-semibold inline-block text-blue-600">
-                            0%
-                        </span>
-                    </div>
-                </div>
-                <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-                    <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500" style="width: 0%"></div>
-                </div>
+      <!-- Progress Indicator -->
+      <div class="mb-10">
+        <div class="relative pt-1">
+          <div class="flex mb-2 items-center justify-between">
+            <div>
+              <span
+                id="progress-text"
+                class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200"
+              >
+                Step 1: Introduction
+              </span>
             </div>
+            <div class="text-right">
+              <span
+                id="progress-percentage"
+                class="text-xs font-semibold inline-block text-blue-600"
+              >
+                0%
+              </span>
+            </div>
+          </div>
+          <div
+            class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200"
+          >
+            <div
+              id="progress-bar"
+              class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 1: Introduction -->
+      <section id="section-intro" class="section active card">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h2 class="text-2xl font-bold mb-4">
+              Welcome to PortfolioPilot Robo Advisor
+            </h2>
+            <p class="mb-4">
+              This intelligent platform will help you create an optimized
+              investment portfolio based on your risk tolerance, financial
+              goals, and market analysis.
+            </p>
+
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+              <h3 class="font-semibold text-lg mb-2">Our Process</h3>
+              <ol class="list-decimal pl-6 mb-0">
+                <li class="mb-2">
+                  Complete a comprehensive risk profiling questionnaire
+                </li>
+                <li class="mb-2">
+                  Analyze your risk tolerance and investment preferences
+                </li>
+                <li class="mb-2">
+                  Generate an optimized portfolio using Modern Portfolio Theory
+                </li>
+                <li class="mb-2">
+                  Visualize your portfolio allocation and performance
+                  projections
+                </li>
+                <li class="mb-2">
+                  Receive actionable investment recommendations
+                </li>
+              </ol>
+            </div>
+
+            <div
+              class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3"
+            >
+              <button
+                id="btn-start-questionnaire"
+                class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition"
+              >
+                Start Risk Profiling
+              </button>
+              <button
+                id="btn-view-funds"
+                class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+              >
+                Explore Available Funds
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-center">
+            <div class="bg-white p-4 rounded-lg shadow-md w-full max-w-md">
+              <h3 class="text-xl font-semibold mb-3 text-center">
+                Key Features
+              </h3>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 rounded-lg bg-blue-50 text-center">
+                  <div class="text-blue-500 text-2xl mb-1">📊</div>
+                  <h4 class="font-medium text-gray-800">
+                    Modern Portfolio Theory
+                  </h4>
+                </div>
+                <div class="p-3 rounded-lg bg-green-50 text-center">
+                  <div class="text-green-500 text-2xl mb-1">🎯</div>
+                  <h4 class="font-medium text-gray-800">
+                    Goal-Based Investing
+                  </h4>
+                </div>
+                <div class="p-3 rounded-lg bg-purple-50 text-center">
+                  <div class="text-purple-500 text-2xl mb-1">📈</div>
+                  <h4 class="font-medium text-gray-800">Efficient Frontier</h4>
+                </div>
+                <div class="p-3 rounded-lg bg-yellow-50 text-center">
+                  <div class="text-yellow-500 text-2xl mb-1">🧮</div>
+                  <h4 class="font-medium text-gray-800">
+                    Multi-Scenario Analysis
+                  </h4>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Fund Information -->
+      <section id="section-funds" class="section card">
+        <h2 class="text-2xl font-bold mb-6">Investment Fund Universe</h2>
+
+        <div class="mb-6">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="text-xl font-semibold">Fund Performance Metrics</h3>
+            <div class="flex space-x-2">
+              <button
+                id="btn-sort-return"
+                class="px-3 py-1 text-sm bg-blue-100 rounded hover:bg-blue-200"
+              >
+                Sort by Return
+              </button>
+              <button
+                id="btn-sort-risk"
+                class="px-3 py-1 text-sm bg-blue-100 rounded hover:bg-blue-200"
+              >
+                Sort by Risk
+              </button>
+              <button
+                id="btn-sort-sharpe"
+                class="px-3 py-1 text-sm bg-blue-100 rounded hover:bg-blue-200"
+              >
+                Sort by Sharpe
+              </button>
+            </div>
+          </div>
+
+          <div
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6"
+            id="fund-cards-container"
+          >
+            <!-- Fund cards will be inserted here by JavaScript -->
+          </div>
         </div>
 
-        <!-- Section 1: Introduction -->
-        <section id="section-intro" class="section active card">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div>
+            <h3 class="text-xl font-semibold mb-3">Correlation Heatmap</h3>
+            <div
+              id="correlation-heatmap"
+              class="w-full h-80 bg-white rounded-lg p-2"
+            ></div>
+          </div>
+          <div>
+            <h3 class="text-xl font-semibold mb-3">Return vs Volatility</h3>
+            <div
+              id="risk-return-scatter"
+              class="w-full h-80 bg-white rounded-lg p-2"
+            ></div>
+          </div>
+        </div>
+
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
+          <h3 class="font-semibold text-lg mb-2">Understanding Fund Metrics</h3>
+          <ul class="list-disc pl-6 mb-0">
+            <li>
+              <strong>Annualized Return:</strong> The yearly compounded return
+              of the investment
+            </li>
+            <li>
+              <strong>Volatility:</strong> A measure of the investment's price
+              fluctuations (risk)
+            </li>
+            <li>
+              <strong>Sharpe Ratio:</strong> Risk-adjusted return (higher is
+              better)
+            </li>
+            <li>
+              <strong>Maximum Drawdown:</strong> The largest historical drop
+              from peak to trough
+            </li>
+          </ul>
+        </div>
+
+        <div class="flex justify-between">
+          <button
+            id="btn-back-to-intro"
+            class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+          >
+            Back to Introduction
+          </button>
+          <button
+            id="btn-to-questionnaire"
+            class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition"
+          >
+            Continue to Risk Profiling
+          </button>
+        </div>
+      </section>
+
+      <!-- Section 3: Risk Profiling Questionnaire -->
+      <section id="section-questionnaire" class="section card">
+        <h2 class="text-2xl font-bold mb-4">Risk Profiling Questionnaire</h2>
+        <p class="mb-6">
+          Please answer the following questions to help us determine your risk
+          tolerance and investment preferences:
+        </p>
+
+        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
+          <div class="flex justify-between items-center">
+            <h3 class="font-semibold text-lg">Your Progress</h3>
+            <span
+              id="question-progress"
+              class="text-sm font-medium text-blue-800"
+              >Question 1 of 16</span
+            >
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+            <div
+              id="question-progress-bar"
+              class="bg-blue-600 h-2.5 rounded-full"
+              style="width: 6%"
+            ></div>
+          </div>
+        </div>
+
+        <div
+          id="question-container"
+          class="bg-white p-6 rounded-lg border border-gray-300 shadow-sm mb-6"
+        >
+          <!-- Current question will be displayed here -->
+        </div>
+
+        <div class="flex justify-between">
+          <button
+            id="btn-prev-question"
+            class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+            disabled
+          >
+            Previous Question
+          </button>
+          <button
+            id="btn-next-question"
+            class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition"
+          >
+            Next Question
+          </button>
+        </div>
+      </section>
+
+      <!-- Section 4: Risk Profile Results -->
+      <section id="section-risk-profile" class="section card">
+        <h2 class="text-2xl font-bold mb-6">Your Risk Profile Analysis</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div
+            id="risk-profile-result"
+            class="md:col-span-2 p-6 bg-blue-50 rounded-lg border border-blue-200"
+          >
+            <!-- Risk profile results will be inserted here -->
+          </div>
+          <div
+            id="risk-dial-container"
+            class="flex items-center justify-center"
+          >
+            <canvas id="risk-dial-chart" width="200" height="200"></canvas>
+          </div>
+        </div>
+
+        <div id="risk-profile-explanation" class="mb-6">
+          <!-- Risk profile explanation will be inserted here -->
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h3 class="font-semibold text-lg mb-3">
+              Time Horizon Considerations
+            </h3>
+            <div id="time-horizon-content">
+              <!-- Time horizon content will be inserted here -->
+            </div>
+          </div>
+          <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h3 class="font-semibold text-lg mb-3">Investment Knowledge</h3>
+            <div id="investment-knowledge-content">
+              <!-- Investment knowledge content will be inserted here -->
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-between">
+          <button
+            id="btn-retake-questionnaire"
+            class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+          >
+            Retake Questionnaire
+          </button>
+          <button
+            id="btn-to-portfolio"
+            class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition"
+          >
+            See Portfolio Recommendations
+          </button>
+        </div>
+      </section>
+
+      <!-- Section 5: Portfolio Recommendations -->
+      <section id="section-portfolio" class="section card">
+        <h2 class="text-2xl font-bold mb-4">Your Optimized Portfolio</h2>
+
+        <div class="mb-6">
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
+            <div
+              class="flex flex-col md:flex-row md:justify-between md:items-center"
+            >
+              <div>
+                <h3 class="font-semibold text-lg">
+                  Risk Profile:
+                  <span id="portfolio-risk-profile" class="text-blue-800"
+                    >Moderate</span
+                  >
+                </h3>
+                <p class="text-sm text-gray-600">
+                  Optimized for your personal risk tolerance
+                </p>
+              </div>
+              <div class="mt-3 md:mt-0 flex items-center space-x-4">
                 <div>
-                    <h2 class="text-2xl font-bold mb-4">Welcome to PortfolioPilot Robo Advisor</h2>
-                    <p class="mb-4">This intelligent platform will help you create an optimized investment portfolio based on your risk tolerance, financial goals, and market analysis.</p>
-                    
-                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-                        <h3 class="font-semibold text-lg mb-2">Our Process</h3>
-                        <ol class="list-decimal pl-6 mb-0">
-                            <li class="mb-2">Complete a comprehensive risk profiling questionnaire</li>
-                            <li class="mb-2">Analyze your risk tolerance and investment preferences</li>
-                            <li class="mb-2">Generate an optimized portfolio using Modern Portfolio Theory</li>
-                            <li class="mb-2">Visualize your portfolio allocation and performance projections</li>
-                            <li class="mb-2">Receive actionable investment recommendations</li>
-                        </ol>
-                    </div>
-                    
-                    <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-                        <button id="btn-start-questionnaire" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition">Start Risk Profiling</button>
-                        <button id="btn-view-funds" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition">Explore Available Funds</button>
-                    </div>
-                </div>
-                <div class="flex items-center justify-center">
-                    <div class="bg-white p-4 rounded-lg shadow-md w-full max-w-md">
-                        <h3 class="text-xl font-semibold mb-3 text-center">Key Features</h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="p-3 rounded-lg bg-blue-50 text-center">
-                                <div class="text-blue-500 text-2xl mb-1">📊</div>
-                                <h4 class="font-medium text-gray-800">Modern Portfolio Theory</h4>
-                            </div>
-                            <div class="p-3 rounded-lg bg-green-50 text-center">
-                                <div class="text-green-500 text-2xl mb-1">🎯</div>
-                                <h4 class="font-medium text-gray-800">Goal-Based Investing</h4>
-                            </div>
-                            <div class="p-3 rounded-lg bg-purple-50 text-center">
-                                <div class="text-purple-500 text-2xl mb-1">📈</div>
-                                <h4 class="font-medium text-gray-800">Efficient Frontier</h4>
-                            </div>
-                            <div class="p-3 rounded-lg bg-yellow-50 text-center">
-                                <div class="text-yellow-500 text-2xl mb-1">🧮</div>
-                                <h4 class="font-medium text-gray-800">Multi-Scenario Analysis</h4>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Section 2: Fund Information -->
-        <section id="section-funds" class="section card">
-            <h2 class="text-2xl font-bold mb-6">Investment Fund Universe</h2>
-            
-            <div class="mb-6">
-                <div class="flex justify-between items-center mb-3">
-                    <h3 class="text-xl font-semibold">Fund Performance Metrics</h3>
-                    <div class="flex space-x-2">
-                        <button id="btn-sort-return" class="px-3 py-1 text-sm bg-blue-100 rounded hover:bg-blue-200">Sort by Return</button>
-                        <button id="btn-sort-risk" class="px-3 py-1 text-sm bg-blue-100 rounded hover:bg-blue-200">Sort by Risk</button>
-                        <button id="btn-sort-sharpe" class="px-3 py-1 text-sm bg-blue-100 rounded hover:bg-blue-200">Sort by Sharpe</button>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6" id="fund-cards-container">
-                    <!-- Fund cards will be inserted here by JavaScript -->
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <h3 class="text-xl font-semibold mb-3">Correlation Heatmap</h3>
-                    <div id="correlation-heatmap" class="w-full h-80 bg-white rounded-lg p-2"></div>
-                </div>
-                <div>
-                    <h3 class="text-xl font-semibold mb-3">Return vs Volatility</h3>
-                    <div id="risk-return-scatter" class="w-full h-80 bg-white rounded-lg p-2"></div>
-                </div>
-            </div>
-
-            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
-                <h3 class="font-semibold text-lg mb-2">Understanding Fund Metrics</h3>
-                <ul class="list-disc pl-6 mb-0">
-                    <li><strong>Annualized Return:</strong> The yearly compounded return of the investment</li>
-                    <li><strong>Volatility:</strong> A measure of the investment's price fluctuations (risk)</li>
-                    <li><strong>Sharpe Ratio:</strong> Risk-adjusted return (higher is better)</li>
-                    <li><strong>Maximum Drawdown:</strong> The largest historical drop from peak to trough</li>
-                </ul>
-            </div>
-            
-            <div class="flex justify-between">
-                <button id="btn-back-to-intro" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition">Back to Introduction</button>
-                <button id="btn-to-questionnaire" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition">Continue to Risk Profiling</button>
-            </div>
-        </section>
-
-        <!-- Section 3: Risk Profiling Questionnaire -->
-        <section id="section-questionnaire" class="section card">
-            <h2 class="text-2xl font-bold mb-4">Risk Profiling Questionnaire</h2>
-            <p class="mb-6">Please answer the following questions to help us determine your risk tolerance and investment preferences:</p>
-            
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-6">
-                <div class="flex justify-between items-center">
-                    <h3 class="font-semibold text-lg">Your Progress</h3>
-                    <span id="question-progress" class="text-sm font-medium text-blue-800">Question 1 of 16</span>
-                </div>
-                <div class="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                    <div id="question-progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 6%"></div>
-                </div>
-            </div>
-            
-            <div id="question-container" class="bg-white p-6 rounded-lg border border-gray-300 shadow-sm mb-6">
-                <!-- Current question will be displayed here -->
-            </div>
-            
-            <div class="flex justify-between">
-                <button id="btn-prev-question" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition" disabled>Previous Question</button>
-                <button id="btn-next-question" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition">Next Question</button>
-            </div>
-        </section>
-
-        <!-- Section 4: Risk Profile Results -->
-        <section id="section-risk-profile" class="section card">
-            <h2 class="text-2xl font-bold mb-6">Your Risk Profile Analysis</h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div id="risk-profile-result" class="md:col-span-2 p-6 bg-blue-50 rounded-lg border border-blue-200">
-                    <!-- Risk profile results will be inserted here -->
-                </div>
-                <div id="risk-dial-container" class="flex items-center justify-center">
-                    <canvas id="risk-dial-chart" width="200" height="200"></canvas>
-                </div>
-            </div>
-            
-            <div id="risk-profile-explanation" class="mb-6">
-                <!-- Risk profile explanation will be inserted here -->
-            </div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <h3 class="font-semibold text-lg mb-3">Time Horizon Considerations</h3>
-                    <div id="time-horizon-content">
-                        <!-- Time horizon content will be inserted here -->
-                    </div>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <h3 class="font-semibold text-lg mb-3">Investment Knowledge</h3>
-                    <div id="investment-knowledge-content">
-                        <!-- Investment knowledge content will be inserted here -->
-                    </div>
-                </div>
-            </div>
-            
-            <div class="flex justify-between">
-                <button id="btn-retake-questionnaire" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition">Retake Questionnaire</button>
-                <button id="btn-to-portfolio" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition">See Portfolio Recommendations</button>
-            </div>
-        </section>
-
-        <!-- Section 5: Portfolio Recommendations -->
-        <section id="section-portfolio" class="section card">
-            <h2 class="text-2xl font-bold mb-4">Your Optimized Portfolio</h2>
-            
-            <div class="mb-6">
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
-                    <div class="flex flex-col md:flex-row md:justify-between md:items-center">
-                        <div>
-                            <h3 class="font-semibold text-lg">Risk Profile: <span id="portfolio-risk-profile" class="text-blue-800">Moderate</span></h3>
-                            <p class="text-sm text-gray-600">Optimized for your personal risk tolerance</p>
-                        </div>
-                        <div class="mt-3 md:mt-0 flex items-center space-x-4">
-                            <div>
-                                <div class="text-xs text-gray-500">Expected Return</div>
-                                <div id="portfolio-return" class="text-xl font-bold text-green-600">8.7%</div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-gray-500">Expected Risk</div>
-                                <div id="portfolio-risk" class="text-xl font-bold text-red-600">12.3%</div>
-                            </div>
-                            <div>
-                                <div class="text-xs text-gray-500">Sharpe Ratio</div>
-                                <div id="portfolio-sharpe" class="text-xl font-bold text-blue-600">0.72</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
-                <div class="lg:col-span-3">
-                    <h3 class="text-xl font-semibold mb-3">Portfolio Allocation</h3>
-                    <div id="portfolio-allocation-chart" class="w-full h-80 bg-white rounded-lg p-2"></div>
-                </div>
-                <div class="lg:col-span-2">
-                    <h3 class="text-xl font-semibold mb-3">Allocation Breakdown</h3>
-                    <div id="allocation-table" class="w-full bg-white rounded-lg p-4 border border-gray-200">
-                        <!-- Allocation table will be inserted here -->
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mb-6">
-                <h3 class="text-xl font-semibold mb-3">Efficient Frontier Analysis</h3>
-                <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
-                    <div id="efficient-frontier-chart" class="w-full h-96"></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <h4 class="font-semibold mb-2">Understanding the Efficient Frontier</h4>
-                        <p class="text-sm">The efficient frontier represents the set of optimal portfolios that offer the highest expected return for a defined level of risk. Your portfolio is positioned at the point that best matches your risk tolerance.</p>
-                    </div>
-                    <div class="bg-gray-50 p-4 rounded-lg">
-                        <h4 class="font-semibold mb-2">Risk-Return Tradeoff</h4>
-                        <p class="text-sm">Moving up the curve means potentially higher returns but with increased risk. Your portfolio balances this tradeoff according to your personal risk profile.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mb-6">
-                <h3 class="text-xl font-semibold mb-3">Portfolio Performance Projection</h3>
-                <div id="projection-scenario-selection" class="flex space-x-3 mb-3">
-                    <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm scenario-btn active" data-scenario="base">Base Case</button>
-                    <button class="px-3 py-1 bg-gray-300 text-gray-800 rounded text-sm scenario-btn" data-scenario="bull">Bull Market</button>
-                    <button class="px-3 py-1 bg-gray-300 text-gray-800 rounded text-sm scenario-btn" data-scenario="bear">Bear Market</button>
-                </div>
-                <div class="bg-white p-4 rounded-lg border border-gray-200">
-                    <div id="projection-chart" class="w-full h-80"></div>
-                </div>
-            </div>
-            
-            <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-6">
-                <h3 class="font-semibold mb-2">Investment Recommendation</h3>
-                <div id="investment-recommendation">
-                    <!-- Investment recommendation will be inserted here -->
-                </div>
-            </div>
-            
-            <div class="flex justify-between">
-                <button id="btn-back-to-risk-profile" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition">Back to Risk Profile</button>
-                <button id="btn-download-report" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition">Download Portfolio Report</button>
-            </div>
-        </section>
-
-        <!-- Section 6: Methodology -->
-        <section id="section-methodology" class="section card">
-            <h2 class="text-2xl font-bold mb-6">Investment Methodology</h2>
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <h3 class="text-xl font-semibold mb-3">Modern Portfolio Theory</h3>
-                    <p class="mb-3">Our portfolio optimization is based on Modern Portfolio Theory (MPT), developed by Nobel laureate Harry Markowitz. MPT is a mathematical framework for assembling a portfolio of assets such that the expected return is maximized for a given level of risk.</p>
-                    <p>Key principles of MPT include:</p>
-                    <ul class="list-disc pl-6 mb-0">
-                        <li>Investors are risk-averse and prefer higher returns for a given level of risk</li>
-                        <li>Portfolio risk can be reduced through diversification</li>
-                        <li>Assets should be selected based on their contribution to the overall portfolio, not in isolation</li>
-                    </ul>
+                  <div class="text-xs text-gray-500">Expected Return</div>
+                  <div
+                    id="portfolio-return"
+                    class="text-xl font-bold text-green-600"
+                  >
+                    8.7%
+                  </div>
                 </div>
                 <div>
-                    <h3 class="text-xl font-semibold mb-3">Risk Profiling Methodology</h3>
-                    <p class="mb-3">Our risk profiling methodology uses a comprehensive questionnaire to assess multiple dimensions of risk tolerance:</p>
-                    <ul class="list-disc pl-6 mb-0">
-                        <li><strong>Psychological Risk Tolerance:</strong> How comfortable you are with volatility</li>
-                        <li><strong>Financial Capacity for Risk:</strong> Your ability to withstand financial losses</li>
-                        <li><strong>Time Horizon:</strong> When you'll need to access your investments</li>
-                        <li><strong>Investment Knowledge:</strong> Your understanding of investment concepts</li>
-                        <li><strong>Financial Goals:</strong> What you're investing for</li>
-                    </ul>
+                  <div class="text-xs text-gray-500">Expected Risk</div>
+                  <div
+                    id="portfolio-risk"
+                    class="text-xl font-bold text-red-600"
+                  >
+                    12.3%
+                  </div>
                 </div>
-            </div>
-            
-            <div class="mb-6">
-                <h3 class="text-xl font-semibold mb-3">Portfolio Construction Process</h3>
-                <div class="bg-white p-4 rounded-lg border border-gray-200">
-                    <ol class="relative border-l border-gray-300">
-                        <li class="mb-6 ml-6">
-                            <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3">1</span>
-                            <h4 class="font-semibold text-lg">Data Collection & Analysis</h4>
-                            <p class="text-sm">Historical price data for each fund is collected and analyzed to calculate key metrics like returns, volatility, and correlations.</p>
-                        </li>
-                        <li class="mb-6 ml-6">
-                            <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3">2</span>
-                            <h4 class="font-semibold text-lg">Risk Profiling</h4>
-                            <p class="text-sm">Your responses to the questionnaire are used to determine your risk aversion parameter, which quantifies your tolerance for investment risk.</p>
-                        </li>
-                        <li class="mb-6 ml-6">
-                            <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3">3</span>
-                            <h4 class="font-semibold text-lg">Efficient Frontier Construction</h4>
-                            <p class="text-sm">We construct the efficient frontier by finding portfolios that maximize expected return for each level of risk.</p>
-                        </li>
-                        <li class="mb-6 ml-6">
-                            <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3">4</span>
-                            <h4 class="font-semibold text-lg">Portfolio Optimization</h4>
-                            <p class="text-sm">Using your risk aversion parameter, we identify the optimal portfolio on the efficient frontier that balances risk and return according to your preferences.</p>
-                        </li>
-                        <li class="ml-6">
-                            <span class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3">5</span>
-                            <h4 class="font-semibold text-lg">Portfolio Recommendations</h4>
-                            <p class="text-sm">We generate specific allocation recommendations for the optimal portfolio, focusing on funds with significant allocations (>1%).</p>
-                        </li>
-                    </ol>
+                <div>
+                  <div class="text-xs text-gray-500">Sharpe Ratio</div>
+                  <div
+                    id="portfolio-sharpe"
+                    class="text-xl font-bold text-blue-600"
+                  >
+                    0.72
+                  </div>
                 </div>
+              </div>
             </div>
-            
-            <div class="bg-red-50 p-4 rounded-lg border border-red-200 mb-6">
-                <h3 class="font-semibold text-lg mb-2 text-red-800">Risk Disclosure</h3>
-                <p class="mb-2">Past performance is not indicative of future results. The projections shown are based on historical data and assumptions about future market conditions.</p>
-                <p class="mb-0">All investments involve risk and may result in loss of principal. This application is for educational and informational purposes only and should not be considered investment advice. Please consult with a qualified financial advisor before making investment decisions.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+          <div class="lg:col-span-3">
+            <h3 class="text-xl font-semibold mb-3">Portfolio Allocation</h3>
+            <div
+              id="portfolio-allocation-chart"
+              class="w-full h-80 bg-white rounded-lg p-2"
+            ></div>
+          </div>
+          <div class="lg:col-span-2">
+            <h3 class="text-xl font-semibold mb-3">Allocation Breakdown</h3>
+            <div
+              id="allocation-table"
+              class="w-full bg-white rounded-lg p-4 border border-gray-200"
+            >
+              <!-- Allocation table will be inserted here -->
             </div>
-            
-            <div class="flex justify-center">
-                <button id="btn-back-to-portfolio" class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition">Back to Portfolio</button>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-xl font-semibold mb-3">
+            Efficient Frontier Analysis
+          </h3>
+          <div class="bg-white p-4 rounded-lg border border-gray-200 mb-4">
+            <div id="efficient-frontier-chart" class="w-full h-96"></div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <h4 class="font-semibold mb-2">
+                Understanding the Efficient Frontier
+              </h4>
+              <p class="text-sm">
+                The efficient frontier represents the set of optimal portfolios
+                that offer the highest expected return for a defined level of
+                risk. Your portfolio is positioned at the point that best
+                matches your risk tolerance.
+              </p>
             </div>
-        </section>
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <h4 class="font-semibold mb-2">Risk-Return Tradeoff</h4>
+              <p class="text-sm">
+                Moving up the curve means potentially higher returns but with
+                increased risk. Your portfolio balances this tradeoff according
+                to your personal risk profile.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-xl font-semibold mb-3">
+            Portfolio Performance Projection
+          </h3>
+          <div id="projection-scenario-selection" class="flex space-x-3 mb-3">
+            <button
+              class="px-3 py-1 bg-blue-600 text-white rounded text-sm scenario-btn active"
+              data-scenario="base"
+            >
+              Base Case
+            </button>
+            <button
+              class="px-3 py-1 bg-gray-300 text-gray-800 rounded text-sm scenario-btn"
+              data-scenario="bull"
+            >
+              Bull Market
+            </button>
+            <button
+              class="px-3 py-1 bg-gray-300 text-gray-800 rounded text-sm scenario-btn"
+              data-scenario="bear"
+            >
+              Bear Market
+            </button>
+          </div>
+          <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <div id="projection-chart" class="w-full h-80"></div>
+          </div>
+        </div>
+
+        <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg mb-6">
+          <h3 class="font-semibold mb-2">Investment Recommendation</h3>
+          <div id="investment-recommendation">
+            <!-- Investment recommendation will be inserted here -->
+          </div>
+        </div>
+
+        <div class="flex justify-between">
+          <button
+            id="btn-back-to-risk-profile"
+            class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+          >
+            Back to Risk Profile
+          </button>
+          <button
+            id="btn-download-report"
+            class="bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition"
+          >
+            Download Portfolio Report
+          </button>
+        </div>
+      </section>
+
+      <!-- Section 6: Methodology -->
+      <section id="section-methodology" class="section card">
+        <h2 class="text-2xl font-bold mb-6">Investment Methodology</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <h3 class="text-xl font-semibold mb-3">Modern Portfolio Theory</h3>
+            <p class="mb-3">
+              Our portfolio optimization is based on Modern Portfolio Theory
+              (MPT), developed by Nobel laureate Harry Markowitz. MPT is a
+              mathematical framework for assembling a portfolio of assets such
+              that the expected return is maximized for a given level of risk.
+            </p>
+            <p>Key principles of MPT include:</p>
+            <ul class="list-disc pl-6 mb-0">
+              <li>
+                Investors are risk-averse and prefer higher returns for a given
+                level of risk
+              </li>
+              <li>Portfolio risk can be reduced through diversification</li>
+              <li>
+                Assets should be selected based on their contribution to the
+                overall portfolio, not in isolation
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-xl font-semibold mb-3">
+              Risk Profiling Methodology
+            </h3>
+            <p class="mb-3">
+              Our risk profiling methodology uses a comprehensive questionnaire
+              to assess multiple dimensions of risk tolerance:
+            </p>
+            <ul class="list-disc pl-6 mb-0">
+              <li>
+                <strong>Psychological Risk Tolerance:</strong> How comfortable
+                you are with volatility
+              </li>
+              <li>
+                <strong>Financial Capacity for Risk:</strong> Your ability to
+                withstand financial losses
+              </li>
+              <li>
+                <strong>Time Horizon:</strong> When you'll need to access your
+                investments
+              </li>
+              <li>
+                <strong>Investment Knowledge:</strong> Your understanding of
+                investment concepts
+              </li>
+              <li>
+                <strong>Financial Goals:</strong> What you're investing for
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-xl font-semibold mb-3">
+            Portfolio Construction Process
+          </h3>
+          <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <ol class="relative border-l border-gray-300">
+              <li class="mb-6 ml-6">
+                <span
+                  class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3"
+                  >1</span
+                >
+                <h4 class="font-semibold text-lg">
+                  Data Collection & Analysis
+                </h4>
+                <p class="text-sm">
+                  Historical price data for each fund is collected and analyzed
+                  to calculate key metrics like returns, volatility, and
+                  correlations.
+                </p>
+              </li>
+              <li class="mb-6 ml-6">
+                <span
+                  class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3"
+                  >2</span
+                >
+                <h4 class="font-semibold text-lg">Risk Profiling</h4>
+                <p class="text-sm">
+                  Your responses to the questionnaire are used to determine your
+                  risk aversion parameter, which quantifies your tolerance for
+                  investment risk.
+                </p>
+              </li>
+              <li class="mb-6 ml-6">
+                <span
+                  class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3"
+                  >3</span
+                >
+                <h4 class="font-semibold text-lg">
+                  Efficient Frontier Construction
+                </h4>
+                <p class="text-sm">
+                  We construct the efficient frontier by finding portfolios that
+                  maximize expected return for each level of risk.
+                </p>
+              </li>
+              <li class="mb-6 ml-6">
+                <span
+                  class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3"
+                  >4</span
+                >
+                <h4 class="font-semibold text-lg">Portfolio Optimization</h4>
+                <p class="text-sm">
+                  Using your risk aversion parameter, we identify the optimal
+                  portfolio on the efficient frontier that balances risk and
+                  return according to your preferences.
+                </p>
+              </li>
+              <li class="ml-6">
+                <span
+                  class="absolute flex items-center justify-center w-6 h-6 bg-blue-200 rounded-full -left-3"
+                  >5</span
+                >
+                <h4 class="font-semibold text-lg">Portfolio Recommendations</h4>
+                <p class="text-sm">
+                  We generate specific allocation recommendations for the
+                  optimal portfolio, focusing on funds with significant
+                  allocations (>1%).
+                </p>
+              </li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="bg-red-50 p-4 rounded-lg border border-red-200 mb-6">
+          <h3 class="font-semibold text-lg mb-2 text-red-800">
+            Risk Disclosure
+          </h3>
+          <p class="mb-2">
+            Past performance is not indicative of future results. The
+            projections shown are based on historical data and assumptions about
+            future market conditions.
+          </p>
+          <p class="mb-0">
+            All investments involve risk and may result in loss of principal.
+            This application is for educational and informational purposes only
+            and should not be considered investment advice. Please consult with
+            a qualified financial advisor before making investment decisions.
+          </p>
+        </div>
+
+        <div class="flex justify-center">
+          <button
+            id="btn-back-to-portfolio"
+            class="bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded hover:bg-gray-400 transition"
+          >
+            Back to Portfolio
+          </button>
+        </div>
+      </section>
     </main>
 
     <!-- Goal Setting Modal -->
-    <div id="goal-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
-        <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-screen overflow-y-auto">
-            <div class="p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold">Set Your Investment Goals</h3>
-                    <button id="btn-close-goal-modal" class="text-gray-400 hover:text-gray-500">
-                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                
-                <form id="goal-form" class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">What are you investing for?</label>
-                        <select id="goal-type" class="w-full rounded-md border border-gray-300 p-2">
-                            <option value="retirement">Retirement</option>
-                            <option value="house">House Purchase</option>
-                            <option value="education">Education</option>
-                            <option value="wealth">Wealth Building</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Target Amount</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                            <input type="number" id="goal-amount" min="1000" step="1000" placeholder="100000" 
-                                   class="w-full rounded-md border border-gray-300 p-2 pl-8">
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Time Horizon (years)</label>
-                        <input type="range" id="goal-time-horizon" min="1" max="40" value="10" class="w-full">
-                        <div class="flex justify-between text-xs text-gray-500">
-                            <span>1 year</span>
-                            <span id="time-horizon-value">10 years</span>
-                            <span>40 years</span>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Initial Investment</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                            <input type="number" id="goal-initial" min="0" step="1000" placeholder="10000" 
-                                   class="w-full rounded-md border border-gray-300 p-2 pl-8">
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Contribution</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">$</span>
-                            <input type="number" id="goal-monthly" min="0" step="100" placeholder="500" 
-                                   class="w-full rounded-md border border-gray-300 p-2 pl-8">
-                        </div>
-                    </div>
-                    
-                    <div class="pt-2">
-                        <button type="submit" class="w-full btn-primary">Save Investment Goals</button>
-                    </div>
-                </form>
+    <div
+      id="goal-modal"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden"
+    >
+      <div
+        class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-screen overflow-y-auto"
+      >
+        <div class="p-6">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">Set Your Investment Goals</h3>
+            <button
+              id="btn-close-goal-modal"
+              class="text-gray-400 hover:text-gray-500"
+            >
+              <svg
+                class="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+          </div>
+
+          <form id="goal-form" class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >What are you investing for?</label
+              >
+              <select
+                id="goal-type"
+                class="w-full rounded-md border border-gray-300 p-2"
+              >
+                <option value="retirement">Retirement</option>
+                <option value="house">House Purchase</option>
+                <option value="education">Education</option>
+                <option value="wealth">Wealth Building</option>
+                <option value="other">Other</option>
+              </select>
             </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Target Amount</label
+              >
+              <div class="relative">
+                <span
+                  class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500"
+                  >$</span
+                >
+                <input
+                  type="number"
+                  id="goal-amount"
+                  min="1000"
+                  step="1000"
+                  placeholder="100000"
+                  class="w-full rounded-md border border-gray-300 p-2 pl-8"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Time Horizon (years)</label
+              >
+              <input
+                type="range"
+                id="goal-time-horizon"
+                min="1"
+                max="40"
+                value="10"
+                class="w-full"
+              />
+              <div class="flex justify-between text-xs text-gray-500">
+                <span>1 year</span>
+                <span id="time-horizon-value">10 years</span>
+                <span>40 years</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Initial Investment</label
+              >
+              <div class="relative">
+                <span
+                  class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500"
+                  >$</span
+                >
+                <input
+                  type="number"
+                  id="goal-initial"
+                  min="0"
+                  step="1000"
+                  placeholder="10000"
+                  class="w-full rounded-md border border-gray-300 p-2 pl-8"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1"
+                >Monthly Contribution</label
+              >
+              <div class="relative">
+                <span
+                  class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500"
+                  >$</span
+                >
+                <input
+                  type="number"
+                  id="goal-monthly"
+                  min="0"
+                  step="100"
+                  placeholder="500"
+                  class="w-full rounded-md border border-gray-300 p-2 pl-8"
+                />
+              </div>
+            </div>
+
+            <div class="pt-2">
+              <button type="submit" class="w-full btn-primary">
+                Save Investment Goals
+              </button>
+            </div>
+          </form>
         </div>
+      </div>
     </div>
 
     <footer class="bg-gray-800 text-white p-6 mt-10">
-        <div class="container mx-auto">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div>
-                    <h3 class="text-xl font-semibold mb-3">PortfolioPilot Robo Advisor</h3>
-                    <p class="text-gray-300">Intelligent portfolio optimization powered by Modern Portfolio Theory and advanced risk profiling.</p>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold mb-3">Important Links</h3>
-                    <ul class="space-y-2">
-                        <li><a href="#" class="text-gray-300 hover:text-white">Methodology</a></li>
-                        <li><a href="#" class="text-gray-300 hover:text-white">Term & Conditions</a></li>
-                        <li><a href="#" class="text-gray-300 hover:text-white">Privacy Policy</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold mb-3">Disclaimer</h3>
-                    <p class="text-gray-300 text-sm">This application is for educational purposes only. It does not constitute financial advice. Past performance is not indicative of future results.</p>
-                </div>
-            </div>
-            <div class="border-t border-gray-700 mt-6 pt-6 text-center text-gray-400">
-                <p>© 2025 PortfolioPilot Financial. All rights reserved.</p>
-            </div>
+      <div class="container mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <h3 class="text-xl font-semibold mb-3">
+              PortfolioPilot Robo Advisor
+            </h3>
+            <p class="text-gray-300">
+              Intelligent portfolio optimization powered by Modern Portfolio
+              Theory and advanced risk profiling.
+            </p>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold mb-3">Important Links</h3>
+            <ul class="space-y-2">
+              <li>
+                <a href="#" class="text-gray-300 hover:text-white"
+                  >Methodology</a
+                >
+              </li>
+              <li>
+                <a href="#" class="text-gray-300 hover:text-white"
+                  >Term & Conditions</a
+                >
+              </li>
+              <li>
+                <a href="#" class="text-gray-300 hover:text-white"
+                  >Privacy Policy</a
+                >
+              </li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold mb-3">Disclaimer</h3>
+            <p class="text-gray-300 text-sm">
+              This application is for educational purposes only. It does not
+              constitute financial advice. Past performance is not indicative of
+              future results.
+            </p>
+          </div>
         </div>
+        <div
+          class="border-t border-gray-700 mt-6 pt-6 text-center text-gray-400"
+        >
+          <p>© 2025 PortfolioPilot Financial. All rights reserved.</p>
+        </div>
+      </div>
     </footer>
 
     <!-- JavaScript Files -->
@@ -471,5 +868,13 @@
     <script src="js/charts.js"></script>
     <script src="js/questionnaire.js"></script>
     <script src="js/app.js"></script>
-</body>
+    <script>
+      // Add event listener for efficient frontier button
+      document
+        .getElementById("btn-view-efficient-frontier")
+        .addEventListener("click", function () {
+          window.location.href = "efficient-frontier.html";
+        });
+    </script>
+  </body>
 </html>

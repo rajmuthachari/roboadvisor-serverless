@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Efficient Frontier Analysis</title>
+    <!-- External Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.24.2/plotly.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+
+    <style>
+      .card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .section {
+        display: none;
+      }
+      .section.active {
+        display: block;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100 min-h-screen">
+    <header class="bg-blue-800 text-white p-6 shadow-md">
+      <div class="container mx-auto flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold">
+            PortfolioPilot: Efficient Frontier Analysis
+          </h1>
+          <p class="text-xl">Advanced Portfolio Optimization Visualization</p>
+        </div>
+        <div>
+          <a
+            href="index.html"
+            class="bg-white text-blue-800 py-2 px-4 rounded-full font-semibold hover:bg-blue-100 transition"
+          >
+            Back to Main App
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container mx-auto p-6">
+      <section class="card">
+        <h2 class="text-2xl font-bold mb-4">Efficient Frontier Analysis</h2>
+        <p class="mb-6">
+          This visualization shows the efficient frontier with and without short
+          sales, along with key portfolio points including the Global Minimum
+          Variance Portfolios (GMVPs), Market Portfolios, Capital Market Lines,
+          and individual assets.
+        </p>
+
+        <div class="grid grid-cols-1 mb-6">
+          <div class="bg-white p-4 rounded-lg border border-gray-200">
+            <div id="efficient-frontier-chart" style="height: 600px"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <h3 class="text-xl font-semibold mb-3">
+              Portfolio Weights Analysis
+            </h3>
+            <div class="grid grid-cols-1 gap-4">
+              <div class="bg-white p-3 rounded border border-gray-200">
+                <h4 class="font-semibold mb-2 text-blue-800">
+                  Global Minimum Variance Portfolio (No Short Sales)
+                </h4>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <span class="text-sm text-gray-600">Expected Return:</span>
+                    <span id="gmvp-no-short-return" class="font-medium"></span>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-600">Volatility:</span>
+                    <span
+                      id="gmvp-no-short-volatility"
+                      class="font-medium"
+                    ></span>
+                  </div>
+                </div>
+                <div id="gmvp-no-short-weights" class="text-sm"></div>
+              </div>
+
+              <div class="bg-white p-3 rounded border border-gray-200">
+                <h4 class="font-semibold mb-2 text-green-800">
+                  Market Portfolio (No Short Sales)
+                </h4>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <span class="text-sm text-gray-600">Expected Return:</span>
+                    <span
+                      id="market-no-short-return"
+                      class="font-medium"
+                    ></span>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-600">Volatility:</span>
+                    <span
+                      id="market-no-short-volatility"
+                      class="font-medium"
+                    ></span>
+                  </div>
+                </div>
+                <div>
+                  <span class="text-sm text-gray-600">Sharpe Ratio:</span>
+                  <span id="market-no-short-sharpe" class="font-medium"></span>
+                </div>
+                <div id="market-no-short-weights" class="text-sm mt-2"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+            <h3 class="text-xl font-semibold mb-3">With Short Sales Allowed</h3>
+            <div class="grid grid-cols-1 gap-4">
+              <div class="bg-white p-3 rounded border border-gray-200">
+                <h4 class="font-semibold mb-2 text-purple-800">
+                  Global Minimum Variance Portfolio (With Short Sales)
+                </h4>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <span class="text-sm text-gray-600">Expected Return:</span>
+                    <span
+                      id="gmvp-with-short-return"
+                      class="font-medium"
+                    ></span>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-600">Volatility:</span>
+                    <span
+                      id="gmvp-with-short-volatility"
+                      class="font-medium"
+                    ></span>
+                  </div>
+                </div>
+                <div id="gmvp-with-short-weights" class="text-sm"></div>
+              </div>
+
+              <div class="bg-white p-3 rounded border border-gray-200">
+                <h4 class="font-semibold mb-2 text-red-800">
+                  Market Portfolio (With Short Sales)
+                </h4>
+                <div class="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <span class="text-sm text-gray-600">Expected Return:</span>
+                    <span
+                      id="market-with-short-return"
+                      class="font-medium"
+                    ></span>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-600">Volatility:</span>
+                    <span
+                      id="market-with-short-volatility"
+                      class="font-medium"
+                    ></span>
+                  </div>
+                </div>
+                <div>
+                  <span class="text-sm text-gray-600">Sharpe Ratio:</span>
+                  <span
+                    id="market-with-short-sharpe"
+                    class="font-medium"
+                  ></span>
+                </div>
+                <div id="market-with-short-weights" class="text-sm mt-2"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
+          <h3 class="font-semibold text-lg mb-2">
+            Understanding the Efficient Frontier
+          </h3>
+          <p class="mb-2">
+            The efficient frontier represents the set of optimal portfolios that
+            offer the highest expected return for each level of risk.
+          </p>
+          <ul class="list-disc pl-6">
+            <li>
+              <strong>Efficient Frontier (Blue):</strong> Portfolios with short
+              sales allowed
+            </li>
+            <li>
+              <strong>Efficient Frontier (Green):</strong> Portfolios with no
+              short sales allowed
+            </li>
+            <li>
+              <strong>GMVP (Global Minimum Variance Portfolio):</strong>
+              Portfolio with the lowest possible risk
+            </li>
+            <li>
+              <strong>Market Portfolio:</strong> Portfolio with the highest
+              Sharpe ratio (best risk-adjusted return)
+            </li>
+            <li>
+              <strong>Capital Market Line:</strong> Line connecting the
+              risk-free rate to the market portfolio
+            </li>
+            <li>
+              <strong>Individual Assets:</strong> Single funds plotted by their
+              risk and return characteristics
+            </li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bg-gray-800 text-white p-6 mt-10">
+      <div class="container mx-auto">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h3 class="text-xl font-semibold mb-3">
+              PortfolioPilot Robo Advisor
+            </h3>
+            <p class="text-gray-300">
+              Portfolio optimization powered by Modern Portfolio Theory.
+            </p>
+          </div>
+          <div>
+            <h3 class="text-lg font-semibold mb-3">Disclaimer</h3>
+            <p class="text-gray-300 text-sm">
+              This visualization is for educational purposes only. Past
+              performance is not indicative of future results.
+            </p>
+          </div>
+        </div>
+        <div
+          class="border-t border-gray-700 mt-6 pt-6 text-center text-gray-400"
+        >
+          <p>© 2025 PortfolioPilot Financial. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- JavaScript to load data and create the visualization -->
+    <script src="js/data.js"></script>
+    <script>
+      // Load data and create visualization when the page loads
+      document.addEventListener("DOMContentLoaded", async function () {
+        // Load portfolio data if not already loaded
+        if (Object.keys(fundData).length === 0) {
+          await loadPortfolioData();
+        }
+
+        // Create the efficient frontier visualization
+        createEfficientFrontierVisualization();
+
+        // Display portfolio metrics
+        displayPortfolioMetrics();
+      });
+
+      // Function to create the efficient frontier visualization
+      function createEfficientFrontierVisualization() {
+        // Check if we have the efficient frontier data
+        if (
+          !efficientFrontierData ||
+          Object.keys(efficientFrontierData).length === 0
+        ) {
+          console.error("Efficient frontier data not available");
+          return;
+        }
+
+        // Prepare data for the chart
+        const data = [];
+
+        // 1. Efficient Frontier with Short Sales
+        if (efficientFrontierData.ef_with_short) {
+          data.push({
+            x: efficientFrontierData.ef_with_short.volatilities,
+            y: efficientFrontierData.ef_with_short.returns,
+            mode: "lines",
+            name: "Efficient Frontier (With Short Sales)",
+            line: {
+              color: "rgba(59, 130, 246, 0.7)", // Blue
+              width: 3,
+            },
+          });
+        }
+
+        // 2. Efficient Frontier without Short Sales
+        if (efficientFrontierData.ef_no_short) {
+          data.push({
+            x: efficientFrontierData.ef_no_short.volatilities,
+            y: efficientFrontierData.ef_no_short.returns,
+            mode: "lines",
+            name: "Efficient Frontier (No Short Sales)",
+            line: {
+              color: "rgba(16, 185, 129, 0.7)", // Green
+              width: 3,
+            },
+          });
+        }
+
+        // 3. Capital Market Line for With Short Sales
+        if (efficientFrontierData.market_portfolio_with_short) {
+          const mp = efficientFrontierData.market_portfolio_with_short;
+          const riskFreeRate = 0.03; // Assuming 3% risk-free rate
+
+          data.push({
+            x: [0, mp.volatility * 2], // Extend CML
+            y: [riskFreeRate, riskFreeRate + mp.sharpe * mp.volatility * 2],
+            mode: "lines",
+            name: "Capital Market Line (With Short Sales)",
+            line: {
+              color: "rgba(220, 38, 38, 0.7)", // Red
+              width: 2,
+              dash: "dash",
+            },
+          });
+        }
+
+        // 4. Capital Market Line for No Short Sales
+        if (efficientFrontierData.market_portfolio_no_short) {
+          const mp = efficientFrontierData.market_portfolio_no_short;
+          const riskFreeRate = 0.03; // Assuming 3% risk-free rate
+
+          data.push({
+            x: [0, mp.volatility * 2], // Extend CML
+            y: [riskFreeRate, riskFreeRate + mp.sharpe * mp.volatility * 2],
+            mode: "lines",
+            name: "Capital Market Line (No Short Sales)",
+            line: {
+              color: "rgba(139, 92, 246, 0.7)", // Purple
+              width: 2,
+              dash: "dot",
+            },
+          });
+        }
+
+        // 5. Individual Assets
+        if (efficientFrontierData.assets) {
+          const assetNames = efficientFrontierData.assets.names;
+          const assetReturns = Object.values(
+            efficientFrontierData.assets.returns
+          );
+          const assetVolatilities = [];
+
+          // Calculate volatilities from the covariance matrix diagonal
+          for (let i = 0; i < covarianceMatrix.length; i++) {
+            assetVolatilities.push(Math.sqrt(covarianceMatrix[i][i]));
+          }
+
+          // Create shortened fund names for display
+          const shortNames = assetNames.map((name) => {
+            const shortName = name.split(/[ -]/)[0];
+            return shortName;
+          });
+
+          data.push({
+            x: assetVolatilities,
+            y: assetReturns,
+            mode: "markers+text",
+            name: "Individual Assets",
+            text: shortNames,
+            textposition: "top",
+            marker: {
+              size: 8,
+              color: "rgba(75, 85, 99, 0.8)", // Gray
+            },
+          });
+        }
+
+        // 6. GMVP with Short Sales
+        if (efficientFrontierData.gmvp_with_short) {
+          const gmvp = efficientFrontierData.gmvp_with_short;
+
+          data.push({
+            x: [gmvp.volatility],
+            y: [gmvp.return],
+            mode: "markers",
+            name: "GMVP (No Short Sales)",
+            marker: {
+              size: 12,
+              color: "rgba(16, 185, 129, 1)", // Green
+              symbol: "star",
+            },
+          });
+        }
+
+        // 7. GMVP without Short Sales if
+        if (efficientFrontierData.gmvp_no_short) {
+          const gmvp = efficientFrontierData.gmvp_no_short;
+
+          data.push({
+            x: [gmvp.volatility],
+            y: [gmvp.return],
+            mode: "markers",
+            name: "GMVP (No Short Sales)",
+            marker: {
+              size: 12,
+              color: "rgba(16, 185, 129, 1)", // Green
+              symbol: "star",
+            },
+          });
+        }
+
+        // 8. Market Portfolio with Short Sales
+        if (efficientFrontierData.market_portfolio_with_short) {
+          const mp = efficientFrontierData.market_portfolio_with_short;
+
+          data.push({
+            x: [mp.volatility],
+            y: [mp.return],
+            mode: "markers",
+            name: "Market Portfolio (With Short Sales)",
+            marker: {
+              size: 12,
+              color: "rgba(220, 38, 38, 1)", // Red
+              symbol: "diamond",
+            },
+          });
+        }
+
+        // 9. Market Portfolio without Short Sales
+        if (efficientFrontierData.market_portfolio_no_short) {
+          const mp = efficientFrontierData.market_portfolio_no_short;
+
+          data.push({
+            x: [mp.volatility],
+            y: [mp.return],
+            mode: "markers",
+            name: "Market Portfolio (No Short Sales)",
+            marker: {
+              size: 12,
+              color: "rgba(245, 158, 11, 1)", // Amber
+              symbol: "diamond",
+            },
+          });
+        }
+
+        // Define layout
+        const layout = {
+          title: "Modern Portfolio Theory: Efficient Frontier Analysis",
+          xaxis: {
+            title: "Annualized Volatility (Risk)",
+            tickformat: ".1%",
+          },
+          yaxis: {
+            title: "Annualized Return",
+            tickformat: ".1%",
+          },
+          legend: {
+            x: 0.01,
+            y: 0.99,
+            bgcolor: "rgba(255, 255, 255, 0.8)",
+            bordercolor: "rgba(0, 0, 0, 0.1)",
+            borderwidth: 1,
+          },
+          hovermode: "closest",
+          plot_bgcolor: "rgba(240, 242, 245, 0.8)",
+          paper_bgcolor: "rgba(255, 255, 255, 1)",
+          annotations: [
+            {
+              x: 0.01,
+              y: 0.03,
+              xref: "paper",
+              yref: "paper",
+              text: "Risk-Free Rate: 3%",
+              showarrow: false,
+              font: {
+                size: 12,
+                color: "rgba(100, 100, 100, 1)",
+              },
+              bgcolor: "rgba(255, 255, 255, 0.7)",
+              borderpad: 4,
+            },
+          ],
+        };
+
+        // Plot the chart
+        Plotly.newPlot("efficient-frontier-chart", data, layout, {
+          responsive: true,
+        });
+      }
+
+      // Function to display portfolio metrics in the UI
+      function displayPortfolioMetrics() {
+        // Format numbers as percentages
+        const formatPercent = (value) => (value * 100).toFixed(2) + "%";
+
+        // GMVP No Short Sales
+        if (efficientFrontierData.gmvp_no_short) {
+          const gmvp = efficientFrontierData.gmvp_no_short;
+          document.getElementById("gmvp-no-short-return").textContent =
+            formatPercent(gmvp.return);
+          document.getElementById("gmvp-no-short-volatility").textContent =
+            formatPercent(gmvp.volatility);
+
+          // Display weights
+          const weightsHtml = createWeightsTable(
+            gmvp.weights,
+            efficientFrontierData.assets.names
+          );
+          document.getElementById("gmvp-no-short-weights").innerHTML =
+            weightsHtml;
+        }
+
+        // Market Portfolio No Short Sales
+        if (efficientFrontierData.market_portfolio_no_short) {
+          const mp = efficientFrontierData.market_portfolio_no_short;
+          document.getElementById("market-no-short-return").textContent =
+            formatPercent(mp.return);
+          document.getElementById("market-no-short-volatility").textContent =
+            formatPercent(mp.volatility);
+          document.getElementById("market-no-short-sharpe").textContent =
+            mp.sharpe.toFixed(2);
+
+          // Display weights
+          const weightsHtml = createWeightsTable(
+            mp.weights,
+            efficientFrontierData.assets.names
+          );
+          document.getElementById("market-no-short-weights").innerHTML =
+            weightsHtml;
+        }
+
+        // GMVP With Short Sales
+        if (efficientFrontierData.gmvp_with_short) {
+          const gmvp = efficientFrontierData.gmvp_with_short;
+          document.getElementById("gmvp-with-short-return").textContent =
+            formatPercent(gmvp.return);
+          document.getElementById("gmvp-with-short-volatility").textContent =
+            formatPercent(gmvp.volatility);
+
+          // Display weights
+          const weightsHtml = createWeightsTable(
+            gmvp.weights,
+            efficientFrontierData.assets.names
+          );
+          document.getElementById("gmvp-with-short-weights").innerHTML =
+            weightsHtml;
+        }
+
+        // Market Portfolio With Short Sales
+        if (efficientFrontierData.market_portfolio_with_short) {
+          const mp = efficientFrontierData.market_portfolio_with_short;
+          document.getElementById("market-with-short-return").textContent =
+            formatPercent(mp.return);
+          document.getElementById("market-with-short-volatility").textContent =
+            formatPercent(mp.volatility);
+          document.getElementById("market-with-short-sharpe").textContent =
+            mp.sharpe.toFixed(2);
+
+          // Display weights
+          const weightsHtml = createWeightsTable(
+            mp.weights,
+            efficientFrontierData.assets.names
+          );
+          document.getElementById("market-with-short-weights").innerHTML =
+            weightsHtml;
+        }
+      }
+
+      // Helper function to create a weights table
+      function createWeightsTable(weights, assetNames) {
+        // Create a table with the weights
+        let html =
+          '<div class="overflow-auto max-h-40"><table class="w-full text-xs mt-2">';
+        html +=
+          '<tr class="bg-gray-100"><th class="px-2 py-1 text-left">Asset</th><th class="px-2 py-1 text-right">Weight</th></tr>';
+
+        // Create shortened names
+        const shortNames = assetNames.map((name) => {
+          // Take first word or first part up to hyphen/space
+          return name.split(/[ -]/)[0];
+        });
+
+        // Add rows with weights
+        for (let i = 0; i < weights.length; i++) {
+          // Skip tiny weights
+          if (Math.abs(weights[i]) < 0.001) continue;
+
+          const weight = weights[i];
+          const weightClass = weight >= 0 ? "text-green-600" : "text-red-600";
+
+          html += `<tr class="border-t border-gray-200">
+                    <td class="px-2 py-1">${shortNames[i]}</td>
+                    <td class="px-2 py-1 text-right ${weightClass} font-medium">${(
+            weight * 100
+          ).toFixed(2)}%</td>
+                </tr>`;
+        }
+
+        html += "</table></div>";
+        return html;
+      }
+    </script>
+  </body>
+</html>
