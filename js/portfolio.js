@@ -48,44 +48,53 @@ function calculateCorrelationMatrix(covMatrix) {
 
 // Optimize portfolio based on risk aversion parameter
 function optimizePortfolio(returns, covMatrix, riskAversion) {
-  const n = returns.length;
+  // Linear map of A ∈ [1.5,12] → target return
+  const maxRet = Math.max(...returns);
+  const minRet = Math.min(...returns);
+  const t = (riskAversion - 1.5) / (12 - 1.5);  // normalize to [0,1]
+  const targetReturn = maxRet - t * (maxRet - minRet);
 
-  // Define objective function: maximize utility = r - (A/2) * sigma^2
-  function objectiveFunction(weights) {
-    const portfolioReturn = calculatePortfolioReturn(returns, weights);
-    const portfolioVariance =
-      calculatePortfolioVolatility(covMatrix, weights) ** 2;
+  // Use your existing solver
+  return minimizeVolatilityForTargetReturn(
+    returns, covMatrix, targetReturn)
+  // const n = returns.length;
 
-    return -(portfolioReturn - (riskAversion / 2) * portfolioVariance);
-  }
+  // // Define objective function: maximize utility = r - (A/2) * sigma^2
+  // function objectiveFunction(weights) {
+  //   const portfolioReturn = calculatePortfolioReturn(returns, weights);
+  //   const portfolioVariance =
+  //     calculatePortfolioVolatility(covMatrix, weights) ** 2;
 
-  // Initial guess: equal weights
-  const initialWeights = Array(n).fill(1 / n);
+  //   return -(portfolioReturn - (riskAversion / 2) * portfolioVariance);
+  // }
 
-  // Constraints: weights sum to 1 and all weights >= 0
-  const constraints = [];
+  // // Initial guess: equal weights
+  // const initialWeights = Array(n).fill(1 / n);
 
-  // Sum of weights = 1
-  const sumConstraint = {
-    type: "eq",
-    fun: function (weights) {
-      return math.sum(weights) - 1;
-    },
-  };
-  constraints.push(sumConstraint);
+  // // Constraints: weights sum to 1 and all weights >= 0
+  // const constraints = [];
 
-  // Bounds: all weights between 0 and 1
-  const bounds = Array(n).fill([0, 1]);
+  // // Sum of weights = 1
+  // const sumConstraint = {
+  //   type: "eq",
+  //   fun: function (weights) {
+  //     return math.sum(weights) - 1;
+  //   },
+  // };
+  // constraints.push(sumConstraint);
 
-  // Use a simple optimization approach for the browser
-  const optimizedWeights = minimizeNelderMead(
-    objectiveFunction,
-    initialWeights,
-    constraints,
-    bounds
-  );
+  // // Bounds: all weights between 0 and 1
+  // const bounds = Array(n).fill([0, 1]);
 
-  return optimizedWeights;
+  // // Use a simple optimization approach for the browser
+  // const optimizedWeights = minimizeNelderMead(
+  //   objectiveFunction,
+  //   initialWeights,
+  //   constraints,
+  //   bounds
+  // );
+
+  // return optimizedWeights;
 }
 
 // Minimize volatility (find global minimum variance portfolio)
