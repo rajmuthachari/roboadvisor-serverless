@@ -214,7 +214,7 @@ function populateFundCards() {
     let bgColor = "bg-white";
     if (fund.assetClass.includes("Equity")) bgColor = "bg-blue-50";
     else if (fund.assetClass.includes("Fixed Income")) bgColor = "bg-green-50";
-    else if (fund.assetClass.includes("Real Estate")) bgColor = "bg-yellow-50";
+    else if (fund.assetClass.includes("Alternative")) bgColor = "bg-yellow-50";
 
     card.classList.add(bgColor);
 
@@ -285,7 +285,7 @@ function sortFunds(metric, descending = true) {
   cards.forEach((card) => container.appendChild(card));
 }
 
-// Calculate optimal portfolio based on risk aversion
+// Old -Calculate optimal portfolio based on risk aversion
 /*function calculateOptimalPortfolio() {
   const fundNames = Object.keys(fundData);
   const numAssets = fundNames.length;
@@ -537,8 +537,376 @@ function sortFunds(metric, descending = true) {
 }
 */
 
-// Complete updated calculateOptimalPortfolio function
+// Calculate optimal portfolio based on risk aversion using enhanced MPT approach
 function calculateOptimalPortfolio() {
+  const fundNames = Object.keys(fundData);
+  const numAssets = fundNames.length;
+
+  // Extract annualized returns and volatilities for diagnostics
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+  const volatilities = fundNames.map(
+    (fund) => fundData[fund].annualizedVolatility
+  );
+
+  // Log key fund characteristics for diagnostics
+  console.log("Fund universe characteristics:");
+  console.log(
+    "Min return:",
+    Math.min(...meanReturns),
+    "Max return:",
+    Math.max(...meanReturns)
+  );
+  console.log(
+    "Min volatility:",
+    Math.min(...volatilities),
+    "Max volatility:",
+    Math.max(...volatilities)
+  );
+
+  // First, calculate key portfolios on the efficient frontier
+  const minVolWeights = minimizeVolatility(meanReturns, covarianceMatrix);
+  const minVolReturn = calculatePortfolioReturn(meanReturns, minVolWeights);
+  const minVolRisk = calculatePortfolioVolatility(
+    covarianceMatrix,
+    minVolWeights
+  );
+
+  const maxSharpeWeights = maximizeSharpeRatio(meanReturns, covarianceMatrix);
+  const maxSharpeReturn = calculatePortfolioReturn(
+    meanReturns,
+    maxSharpeWeights
+  );
+  const maxSharpeRisk = calculatePortfolioVolatility(
+    covarianceMatrix,
+    maxSharpeWeights
+  );
+
+  // Maximum return portfolio (single asset, highest return)
+  const maxReturnIndex = meanReturns.indexOf(Math.max(...meanReturns));
+  const maxReturnWeights = Array(numAssets).fill(0);
+  maxReturnWeights[maxReturnIndex] = 1;
+  const maxReturn = meanReturns[maxReturnIndex];
+  const maxReturnRisk = Math.sqrt(
+    covarianceMatrix[maxReturnIndex][maxReturnIndex]
+  );
+
+  // Log key portfolios for diagnostics
+  console.log(
+    "Minimum Variance Portfolio - Return:",
+    minVolReturn,
+    "Risk:",
+    minVolRisk
+  );
+  console.log(
+    "Maximum Sharpe Portfolio - Return:",
+    maxSharpeReturn,
+    "Risk:",
+    maxSharpeRisk
+  );
+  console.log(
+    "Maximum Return Portfolio - Return:",
+    maxReturn,
+    "Risk:",
+    maxReturnRisk
+  );
+
+  // Calculate return range for all risk profiles
+  const returnRange = maxReturn - minVolReturn;
+
+  // If the return range is very small, we need a different approach
+  if (returnRange < 0.02) {
+    // Less than 2% difference between min and max return
+    console.warn(
+      "Very small return range detected. Using alternative approach."
+    );
+    // Use a risk-based approach instead of return-based
+    return calculateRiskBasedPortfolio();
+  }
+
+  // Generate a series of portfolios along the efficient frontier
+  const numPortfolios = 20;
+  const efficientFrontierReturns = [];
+  const efficientFrontierRisks = [];
+  const efficientFrontierWeights = [];
+
+  // Create portfolios from min variance to max return
+  for (let i = 0; i < numPortfolios; i++) {
+    const t = i / (numPortfolios - 1);
+    const targetReturn = minVolReturn + t * (maxReturn - minVolReturn);
+
+    try {
+      const weights = minimizeVolatilityForTargetReturn(
+        meanReturns,
+        covarianceMatrix,
+        targetReturn
+      );
+      const risk = calculatePortfolioVolatility(covarianceMatrix, weights);
+
+      efficientFrontierReturns.push(targetReturn);
+      efficientFrontierRisks.push(risk);
+      efficientFrontierWeights.push(weights);
+    } catch (e) {
+      console.warn(
+        `Could not calculate portfolio for return ${targetReturn}`,
+        e
+      );
+    }
+  }
+
+  // Log efficient frontier
+  console.log(
+    "Generated Efficient Frontier - Points:",
+    efficientFrontierReturns.length
+  );
+
+  // Find portfolio based on risk profile
+  let selectedPortfolioIndex;
+
+  switch (appState.riskProfile) {
+    case "Very Conservative":
+      // Use the portfolio closest to 10% along efficient frontier
+      selectedPortfolioIndex = Math.floor(
+        0.1 * (efficientFrontierWeights.length - 1)
+      );
+      break;
+    case "Conservative":
+      // Use the portfolio closest to 25% along efficient frontier
+      selectedPortfolioIndex = Math.floor(
+        0.25 * (efficientFrontierWeights.length - 1)
+      );
+      break;
+    case "Moderate":
+      // Use the portfolio closest to 50% along efficient frontier
+      selectedPortfolioIndex = Math.floor(
+        0.5 * (efficientFrontierWeights.length - 1)
+      );
+      break;
+    case "Growth-Oriented":
+      // Use the portfolio closest to 75% along efficient frontier
+      selectedPortfolioIndex = Math.floor(
+        0.75 * (efficientFrontierWeights.length - 1)
+      );
+      break;
+    case "Aggressive":
+      // Use the portfolio closest to 90% along efficient frontier
+      selectedPortfolioIndex = Math.floor(
+        0.9 * (efficientFrontierWeights.length - 1)
+      );
+      break;
+    default:
+      // Default to middle of frontier
+      selectedPortfolioIndex = Math.floor(
+        0.5 * (efficientFrontierWeights.length - 1)
+      );
+  }
+
+  // Ensure we have a valid index
+  if (
+    selectedPortfolioIndex < 0 ||
+    selectedPortfolioIndex >= efficientFrontierWeights.length
+  ) {
+    selectedPortfolioIndex = 0; // Fallback to the safest portfolio
+  }
+
+  // Get the optimal weights
+  const optimalWeights = efficientFrontierWeights[selectedPortfolioIndex];
+
+  // Log selected portfolio
+  console.log("Selected Portfolio for " + appState.riskProfile + ":");
+  console.log("Return:", efficientFrontierReturns[selectedPortfolioIndex]);
+  console.log("Risk:", efficientFrontierRisks[selectedPortfolioIndex]);
+
+  // Calculate portfolio statistics
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    optimalWeights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+
+  // Filter for significant allocations (> 1%)
+  const significantAllocations = {};
+  let totalSignificant = 0;
+
+  for (let i = 0; i < numAssets; i++) {
+    if (optimalWeights[i] > 0.01) {
+      significantAllocations[fundNames[i]] = optimalWeights[i];
+      totalSignificant += optimalWeights[i];
+    }
+  }
+
+  // Normalize significant allocations
+  for (const fund in significantAllocations) {
+    significantAllocations[fund] =
+      significantAllocations[fund] / totalSignificant;
+  }
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: optimalWeights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: Object.entries(significantAllocations).map(
+      ([fund, weight]) => ({ fund, weight })
+    ),
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+  };
+
+  // Update UI
+  updatePortfolioUI();
+}
+
+// Alternative approach based on risk level rather than return targets
+function calculateRiskBasedPortfolio() {
+  const fundNames = Object.keys(fundData);
+  const numAssets = fundNames.length;
+
+  // Extract annualized returns
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+
+  // Calculate global minimum variance portfolio
+  const minVolWeights = minimizeVolatility(meanReturns, covarianceMatrix);
+  const minVolRisk = calculatePortfolioVolatility(
+    covarianceMatrix,
+    minVolWeights
+  );
+
+  // Calculate maximum return portfolio (single highest return asset)
+  const maxReturnIndex = meanReturns.indexOf(Math.max(...meanReturns));
+  const maxReturnWeights = Array(numAssets).fill(0);
+  maxReturnWeights[maxReturnIndex] = 1;
+  const maxReturnRisk = Math.sqrt(
+    covarianceMatrix[maxReturnIndex][maxReturnIndex]
+  );
+
+  // Calculate target risk level based on risk profile
+  let targetRisk;
+
+  switch (appState.riskProfile) {
+    case "Very Conservative":
+      targetRisk = minVolRisk * 1.1; // Just slightly above minimum risk
+      break;
+    case "Conservative":
+      targetRisk = minVolRisk + 0.25 * (maxReturnRisk - minVolRisk);
+      break;
+    case "Moderate":
+      targetRisk = minVolRisk + 0.5 * (maxReturnRisk - minVolRisk);
+      break;
+    case "Growth-Oriented":
+      targetRisk = minVolRisk + 0.75 * (maxReturnRisk - minVolRisk);
+      break;
+    case "Aggressive":
+      targetRisk = minVolRisk + 0.9 * (maxReturnRisk - minVolRisk);
+      break;
+    default:
+      targetRisk = minVolRisk + 0.5 * (maxReturnRisk - minVolRisk);
+  }
+
+  console.log(
+    "Target risk level for " + appState.riskProfile + ":",
+    targetRisk
+  );
+
+  // Find portfolio that maximizes return for target risk level
+  const optimalWeights = maximizeReturnForTargetRisk(
+    meanReturns,
+    covarianceMatrix,
+    targetRisk
+  );
+
+  // Continue with the same post-processing as original function...
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    optimalWeights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+
+  // Filter for significant allocations
+  const significantAllocations = {};
+  let totalSignificant = 0;
+
+  for (let i = 0; i < numAssets; i++) {
+    if (optimalWeights[i] > 0.01) {
+      significantAllocations[fundNames[i]] = optimalWeights[i];
+      totalSignificant += optimalWeights[i];
+    }
+  }
+
+  // Normalize significant allocations
+  for (const fund in significantAllocations) {
+    significantAllocations[fund] =
+      significantAllocations[fund] / totalSignificant;
+  }
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: optimalWeights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: Object.entries(significantAllocations).map(
+      ([fund, weight]) => ({ fund, weight })
+    ),
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+  };
+
+  // Update UI
+  updatePortfolioUI();
+}
+
+// New function: Maximize return for a target risk level
+function maximizeReturnForTargetRisk(returns, covMatrix, targetRisk) {
+  const n = returns.length;
+
+  // Objective function: maximize portfolio return (minimize negative return)
+  function objectiveFunction(weights) {
+    return -calculatePortfolioReturn(returns, weights);
+  }
+
+  // Initial guess: equal weights
+  const initialWeights = Array(n).fill(1 / n);
+
+  // Constraints: weights sum to 1, all weights >= 0, and portfolio risk = targetRisk
+  const constraints = [
+    {
+      type: "eq",
+      fun: function (weights) {
+        return math.sum(weights) - 1;
+      },
+    },
+    {
+      type: "eq",
+      fun: function (weights) {
+        return calculatePortfolioVolatility(covMatrix, weights) - targetRisk;
+      },
+    },
+  ];
+
+  // Bounds: all weights between 0 and 1
+  const bounds = Array(n).fill([0, 1]);
+
+  // Optimize with multiple restarts for better convergence
+  return minimizeNelderMead(
+    objectiveFunction,
+    initialWeights,
+    constraints,
+    bounds,
+    { restarts: 3 }
+  );
+}
+
+// Last best working: Complete updated calculateOptimalPortfolio function
+/*function calculateOptimalPortfolio() {
   const fundNames = Object.keys(fundData);
   const numAssets = fundNames.length;
 
@@ -878,7 +1246,9 @@ function calculateOptimalPortfolio() {
   // Update UI
   updatePortfolioUI();
 }
+*/
 
+/* Last best working: part
 // Add this validation function to app.js
 function validateOptimalPortfolio() {
   // Check if portfolio makes sense for the risk profile
@@ -1561,27 +1931,27 @@ function applyFallbackAllocation() {
     "Very Conservative": {
       Equity: 0.15,
       "Fixed Income": 0.75,
-      "Real Estate": 0.1,
+      Alternative: 0.1,
     },
     Conservative: {
       Equity: 0.35,
       "Fixed Income": 0.55,
-      "Real Estate": 0.1,
+      Alternative: 0.1,
     },
     Moderate: {
       Equity: 0.5,
       "Fixed Income": 0.4,
-      "Real Estate": 0.1,
+      Alternative: 0.1,
     },
     "Growth-Oriented": {
       Equity: 0.7,
       "Fixed Income": 0.2,
-      "Real Estate": 0.1,
+      Alternative: 0.1,
     },
     Aggressive: {
       Equity: 0.85,
       "Fixed Income": 0.1,
-      "Real Estate": 0.05,
+      Alternative: 0.05,
     },
   };
 
@@ -1592,7 +1962,7 @@ function applyFallbackAllocation() {
   const fundsByClass = {
     Equity: [],
     "Fixed Income": [],
-    "Real Estate": [],
+    Alternative: [],
     Other: [],
   };
 
@@ -1603,8 +1973,8 @@ function applyFallbackAllocation() {
       fundsByClass["Equity"].push(fundName);
     } else if (fund.assetClass.includes("Fixed Income")) {
       fundsByClass["Fixed Income"].push(fundName);
-    } else if (fund.assetClass.includes("Real Estate")) {
-      fundsByClass["Real Estate"].push(fundName);
+    } else if (fund.assetClass.includes("Alternative")) {
+      fundsByClass["Alternative"].push(fundName);
     } else {
       fundsByClass["Other"].push(fundName);
     }
@@ -1675,6 +2045,7 @@ function applyFallbackAllocation() {
   );
 }
 
+*/
 // Update portfolio UI
 function updatePortfolioUI() {
   // Update portfolio information
@@ -1761,7 +2132,7 @@ function updateAllocationTable() {
     let colorClass = "";
     if (assetClass.includes("Equity")) colorClass = "text-blue-600";
     else if (assetClass.includes("Fixed Income")) colorClass = "text-green-600";
-    else if (assetClass.includes("Real Estate")) colorClass = "text-yellow-600";
+    else if (assetClass.includes("Alternative")) colorClass = "text-yellow-600";
 
     tableHTML += `
             <tr class="border-b border-gray-200">
