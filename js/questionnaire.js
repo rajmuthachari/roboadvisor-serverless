@@ -145,68 +145,6 @@ function resetQuestionnaire() {
   showCurrentQuestion();
 }
 
-/*
-// Calculate risk profile based on questionnaire responses
-function calculateRiskProfile() {
-  // Calculate total score - in this case, higher scores mean more risk tolerance
-  const totalScore = appState.questionResponses.reduce(
-    (sum, response) => sum + response,
-    0
-  );
-
-  // Calculate the final risk score (inverted)
-  const finalScore = 96 - totalScore; // For a 16-question survey with 5 points per question
-
-  // Map to risk aversion parameter and risk profile
-  let riskProfile, riskAversion;
-
-  if (finalScore >= 76) {
-    riskProfile = "Aggressive";
-    riskAversion = 1.5;
-  } else if (finalScore >= 61) {
-    riskProfile = "Growth-Oriented";
-    riskAversion = 2.5;
-  } else if (finalScore >= 46) {
-    riskProfile = "Moderate";
-    riskAversion = 3.5;
-  } else if (finalScore >= 31) {
-    riskProfile = "Conservative";
-    riskAversion = 6.0;
-  } else {
-    riskProfile = "Very Conservative";
-    riskAversion = 12.0;
-  }
-
-  // Extract investment knowledge and time horizon from responses
-  const knowledgeLevel = appState.questionResponses[3]; // Question 4
-  const timeHorizon = appState.questionResponses[1]; // Question 2
-
-  const knowledgeLabels = [
-    "Very Limited",
-    "Basic",
-    "Moderate",
-    "Good",
-    "Advanced",
-  ];
-  const timeHorizonLabels = [
-    "< 3 years",
-    "3-5 years",
-    "6-10 years",
-    "11-20 years",
-    "> 20 years",
-  ];
-
-  // Update application state
-  appState.riskProfile = riskProfile;
-  appState.riskAversion = riskAversion;
-  appState.knowledgeLevel = knowledgeLabels[knowledgeLevel - 1];
-  appState.timeHorizon = timeHorizonLabels[timeHorizon - 1];
-
-  // Update UI
-  updateRiskProfileUI();
-}
-*/
-
 /**
  * Calculate risk profile based on questionnaire responses
  * Fixed version that properly handles the scoring (no inversion)

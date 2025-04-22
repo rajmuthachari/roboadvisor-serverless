@@ -208,236 +208,213 @@ function createPortfolioAllocationChart() {
     responsive: true,
   });
 }
-/*
-// In charts.js, update the createPortfolioAllocationChart function to plot by asset class instead of fund name
-function createPortfolioAllocationChart() {
-  // Get recommended allocation from app state
-  const allocation = appState.optimalPortfolio.recommendedAllocation;
 
-  // Group allocations by asset class
-  const assetClassGroups = {};
-
-  allocation.forEach((item) => {
-    const fund = item.fund;
-    const assetClass = fundData[fund].assetClass;
-
-    // Get the main asset class (first part before the dash)
-    const mainAssetClass = assetClass.split("-")[0].trim();
-
-    if (!assetClassGroups[mainAssetClass]) {
-      assetClassGroups[mainAssetClass] = 0;
-    }
-
-    assetClassGroups[mainAssetClass] += item.weight;
-  });
-
-  // Convert to arrays for the chart
-  const labels = Object.keys(assetClassGroups);
-  const data = Object.values(assetClassGroups);
-
-  // Define colors for different asset classes
-  const colors = labels.map((assetClass) => {
-    if (assetClass.includes("Equity")) {
-      return "#EC6666"; // Red for equity
-    } else if (assetClass.includes("Fixed Income")) {
-      return "#3366CC"; // Blue for fixed income
-    } else if (assetClass.includes("Alternative")) {
-      return "#FFBF00"; // Yellow for alternatives
-    } else {
-      return "#66AA66"; // Green for others
-    }
-  });
-
-  // Get the container element
-  const container = document.getElementById("portfolio-allocation-chart");
-
-  // Create the chart using Plotly
-  Plotly.newPlot(
-    container,
-    [
-      {
-        labels: labels,
-        values: data,
-        type: "pie",
-        textinfo: "label+percent",
-        textposition: "inside",
-        automargin: true,
-        marker: {
-          colors: colors,
-        },
-        hoverinfo: "label+percent+value",
-        hoverlabel: {
-          bgcolor: "#FFF",
-          bordercolor: "#333",
-          font: { size: 12 },
-        },
-      },
-    ],
-    {
-      title: "Portfolio Allocation by Asset Class",
-      height: 400,
-      margin: { t: 40, b: 40, l: 20, r: 20 },
-    }
-  );
-}
-*/
-
-// Create efficient frontier chart
+// Streamlined createEfficientFrontierChart function
 function createEfficientFrontierChart() {
-  // Extract returns for all funds
+  // Get the container element
+  const container = document.getElementById("efficient-frontier-chart");
+
+  // Set a taller height for the chart
+  container.style.height = "500px";
+
+  // Use the existing efficient frontier data from portfolio_data.json
+  if (
+    !efficientFrontierData ||
+    Object.keys(efficientFrontierData).length === 0
+  ) {
+    console.error("Efficient frontier data not available");
+    return;
+  }
+
   const fundNames = Object.keys(fundData);
-  const returns = fundNames.map((fund) => fundData[fund].annualizedReturn);
 
-  // Generate efficient frontier points
-  const frontierPoints = generateEfficientFrontier(returns, covarianceMatrix);
-
-  // Get individual funds data
-  const fundReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
-  const fundVolatilities = fundNames.map(
+  // Extract annualized returns and volatilities for individual funds
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+  const volatilities = fundNames.map(
     (fund) => fundData[fund].annualizedVolatility
   );
 
-  // Create shortened fund names for better display
-  const shortFundNames = fundNames.map((name) => {
-    const shortName = name.split(/[ -]/)[0];
-    return shortName;
-  });
+  // Get the efficient frontier data (use no short sales version)
+  const ef = efficientFrontierData.ef_no_short;
 
-  // Create data for scatter plot
+  // Get key portfolio points
+  const gmvp = efficientFrontierData.gmvp_no_short;
+  const marketPortfolio = efficientFrontierData.market_portfolio_no_short;
+
+  // Risk-free rate and calculate Capital Market Line
+  const riskFreeRate = 0.03; // 3% risk-free rate
+  const cmlVolatilities = [0, marketPortfolio.volatility * 2];
+  const cmlReturns = cmlVolatilities.map(
+    (vol) => riskFreeRate + marketPortfolio.sharpe * vol
+  );
+
+  // Current Portfolio from app state
+  const currentReturn = appState.optimalPortfolio.stats.return;
+  const currentVolatility = appState.optimalPortfolio.stats.volatility;
+
+  // Create the plot data
   const data = [
-    // Efficient frontier
+    // Efficient Frontier
     {
-      x: frontierPoints.volatilities,
-      y: frontierPoints.returns,
+      x: ef.volatilities,
+      y: ef.returns,
       mode: "lines",
       name: "Efficient Frontier",
       line: {
-        color: "rgba(59, 130, 246, 0.7)",
+        color: "rgb(0, 150, 136)",
         width: 3,
+        shape: "spline", // Use spline interpolation for smoother curve
+        smoothing: 1.3, // Add smoothing for a nicer curve
       },
     },
     // Capital Market Line
     {
-      x: [0, frontierPoints.maxSharpeVolatility * 1.5],
-      y: [
-        0.03,
-        0.03 +
-          frontierPoints.maxSharpeRatio *
-            frontierPoints.maxSharpeVolatility *
-            1.5,
-      ],
+      x: cmlVolatilities,
+      y: cmlReturns,
       mode: "lines",
       name: "Capital Market Line",
       line: {
-        color: "rgba(220, 38, 38, 0.7)",
+        color: "rgb(255, 152, 0)",
         width: 2,
         dash: "dash",
       },
     },
-    // Individual funds
+    // Global Minimum Variance Portfolio
     {
-      x: fundVolatilities,
-      y: fundReturns,
-      mode: "markers+text",
-      name: "Individual Funds",
-      text: shortFundNames,
-      textposition: "top",
-      marker: {
-        size: 8,
-        color: "rgba(107, 114, 128, 0.7)",
-      },
-    },
-    // Optimal portfolio
-    {
-      x: [appState.optimalPortfolio.stats.volatility],
-      y: [appState.optimalPortfolio.stats.return],
+      x: [gmvp.volatility],
+      y: [gmvp.return],
       mode: "markers",
-      name: "Your Portfolio",
+      name: "Global Minimum Variance Portfolio",
       marker: {
+        color: "rgb(3, 169, 244)",
         size: 12,
-        color: "rgba(16, 185, 129, 1)",
-        symbol: "star",
-      },
-    },
-    // Maximum Sharpe Ratio Portfolio
-    {
-      x: [frontierPoints.maxSharpeVolatility],
-      y: [frontierPoints.maxSharpeReturn],
-      mode: "markers",
-      name: "Max Sharpe Ratio",
-      marker: {
-        size: 10,
-        color: "rgba(220, 38, 38, 1)",
         symbol: "diamond",
       },
     },
-    // Minimum Variance Portfolio
+    // Market Portfolio (Maximum Sharpe)
     {
-      x: [frontierPoints.minVarianceVolatility],
-      y: [frontierPoints.minVarianceReturn],
+      x: [marketPortfolio.volatility],
+      y: [marketPortfolio.return],
       mode: "markers",
-      name: "Min Variance",
+      name: "Market Portfolio",
       marker: {
-        size: 10,
-        color: "rgba(245, 158, 11, 1)",
+        color: "rgb(255, 193, 7)",
+        size: 12,
+        symbol: "star",
+      },
+    },
+    // Current Portfolio - centered exactly on the frontier
+    {
+      x: [currentVolatility],
+      y: [currentReturn],
+      mode: "markers",
+      name: `${appState.riskProfile} Portfolio (Current)`,
+      marker: {
+        color: "rgb(76, 175, 80)",
+        size: 15,
+        symbol: "circle",
+        line: {
+          color: "black",
+          width: 2,
+        },
+      },
+    },
+    // Individual Funds
+    {
+      x: volatilities,
+      y: meanReturns,
+      mode: "markers+text",
+      name: "Individual Funds",
+      text: fundNames.map((name) => name.split(" ")[0]), // First word of fund name
+      textposition: "top",
+      hoverinfo: "text+x+y",
+      marker: {
+        color: "rgb(158, 158, 158)",
+        size: 8,
         symbol: "circle",
       },
     },
   ];
 
-  // Create layout
+  // Create the layout
   const layout = {
     title: "Efficient Frontier Analysis",
     xaxis: {
-      title: "Expected Volatility",
-      tickformat: ".0%",
+      title: "Annualized Volatility (Risk)",
+      tickformat: ".1%",
+      zeroline: false,
+      rangemode: "tozero",
     },
     yaxis: {
-      title: "Expected Return",
-      tickformat: ".0%",
+      title: "Annualized Return",
+      tickformat: ".1%",
+      zeroline: false,
     },
+    showlegend: true,
     legend: {
-      x: 0.05,
-      y: 0.95,
+      x: 0.01,
+      y: 0.99,
+      bgcolor: "rgba(255, 255, 255, 0.8)",
       bordercolor: "rgba(0, 0, 0, 0.1)",
       borderwidth: 1,
     },
-    shapes: [
-      // Add a shape to highlight your portfolio risk tolerance area
-      {
-        type: "rect",
-        xref: "x",
-        yref: "paper",
-        x0: 0,
-        y0: 0,
-        x1: appState.optimalPortfolio.stats.volatility,
-        y1: 1,
-        fillcolor: "rgba(16, 185, 129, 0.1)",
-        line: {
-          width: 0,
-        },
-      },
-    ],
+    hovermode: "closest",
+    height: 500, // Taller chart
+    plot_bgcolor: "rgba(240, 242, 245, 0.8)",
+    paper_bgcolor: "rgba(255, 255, 255, 1)",
     annotations: [
       {
-        x: appState.optimalPortfolio.stats.volatility / 2,
-        y: 1,
+        x: gmvp.volatility,
+        y: gmvp.return,
         xref: "x",
+        yref: "y",
+        text: "GMVP",
+        showarrow: true,
+        arrowhead: 2,
+        ax: -15,
+        ay: -30,
+      },
+      {
+        x: marketPortfolio.volatility,
+        y: marketPortfolio.return,
+        xref: "x",
+        yref: "y",
+        text: "Market Portfolio",
+        showarrow: true,
+        arrowhead: 2,
+        ax: 25,
+        ay: -30,
+      },
+      {
+        x: currentVolatility,
+        y: currentReturn,
+        xref: "x",
+        yref: "y",
+        text: appState.riskProfile + " Portfolio",
+        showarrow: true,
+        arrowhead: 2,
+        ax: 25,
+        ay: 30,
+      },
+      {
+        x: 0.01,
+        y: 0.03,
+        xref: "paper",
         yref: "paper",
-        text: "Your Risk Tolerance",
+        text: "Risk-Free Rate: 3%",
         showarrow: false,
         font: {
           size: 12,
-          color: "rgba(16, 185, 129, 1)",
+          color: "rgba(100, 100, 100, 1)",
         },
+        bgcolor: "rgba(255, 255, 255, 0.7)",
+        borderpad: 4,
       },
     ],
   };
 
-  // Create scatter plot
-  Plotly.newPlot("efficient-frontier-chart", data, layout, {
-    responsive: true,
-  });
+  // Create the plot
+  Plotly.newPlot(container, data, layout, { responsive: true });
 }
 
 // Create projection chart

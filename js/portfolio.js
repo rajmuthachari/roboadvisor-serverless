@@ -203,46 +203,6 @@ function maximizeSharpeRatio(returns, covMatrix, riskFreeRate = 0.03) {
   );
 }
 
-// Minimize volatility for a target return
-/*function minimizeVolatilityForTargetReturn(returns, covMatrix, targetReturn) {
-  const n = returns.length;
-
-  // Objective function: minimize portfolio volatility
-  function objectiveFunction(weights) {
-    return calculatePortfolioVolatility(covMatrix, weights);
-  }
-
-  // Initial guess: equal weights
-  const initialWeights = Array(n).fill(1 / n);
-
-  // Constraints: weights sum to 1, all weights >= 0, and portfolio return = targetReturn
-  const constraints = [
-    {
-      type: "eq",
-      fun: function (weights) {
-        return math.sum(weights) - 1;
-      },
-    },
-    {
-      type: "eq",
-      fun: function (weights) {
-        return calculatePortfolioReturn(returns, weights) - targetReturn;
-      },
-    },
-  ];
-
-  // Bounds: all weights between 0 and 1
-  const bounds = Array(n).fill([0, 1]);
-
-  // Optimize
-  return minimizeNelderMead(
-    objectiveFunction,
-    initialWeights,
-    constraints,
-    bounds
-  );
-}
-*/
 function minimizeVolatilityForTargetReturn(
   returns,
   covMatrix,
@@ -291,81 +251,6 @@ function minimizeVolatilityForTargetReturn(
 }
 
 // Simple Nelder-Mead optimizer (a simplified version for browser environment)
-/*function minimizeNelderMead(func, initialX, constraints, bounds, options = {}) {
-  const maxIterations = options.maxIterations || 1000;
-  const tolerance = options.tolerance || 1e-6;
-
-  // For simplicity, we'll use a penalty method to handle constraints
-  function penalizedFunc(x) {
-    let penalty = 0;
-
-    // Add penalty for violating bounds
-    for (let i = 0; i < x.length; i++) {
-      if (x[i] < bounds[i][0]) penalty += 10000 * (bounds[i][0] - x[i]) ** 2;
-      if (x[i] > bounds[i][1]) penalty += 10000 * (x[i] - bounds[i][1]) ** 2;
-    }
-
-    // Add penalty for violating constraints
-    for (const constraint of constraints) {
-      if (constraint.type === "eq") {
-        const value = constraint.fun(x);
-        penalty += 10000 * value ** 2;
-      }
-    }
-
-    return func(x) + penalty;
-  }
-
-  // Very simple optimization approach - gradient descent with projected gradients
-  let x = [...initialX];
-  let iterCount = 0;
-  let step = 0.01;
-  let prevValue = penalizedFunc(x);
-
-  while (iterCount < maxIterations) {
-    iterCount++;
-
-    // Try to improve each dimension separately
-    for (let i = 0; i < x.length; i++) {
-      const oldX = x[i];
-
-      // Try a step in positive direction
-      x[i] = oldX + step;
-      let newValue = penalizedFunc(x);
-
-      // If it doesn't improve, try negative direction
-      if (newValue >= prevValue) {
-        x[i] = oldX - step;
-        newValue = penalizedFunc(x);
-
-        // If neither direction improves, restore original value
-        if (newValue >= prevValue) {
-          x[i] = oldX;
-          continue;
-        }
-      }
-
-      prevValue = newValue;
-    }
-
-    // Reduce step size over time
-    step *= 0.95;
-
-    // Check if we've converged
-    if (step < tolerance) break;
-  }
-
-  // Project back to satisfy the sum constraint (weights sum to 1)
-  const sum = math.sum(x);
-  if (Math.abs(sum - 1) > tolerance) {
-    for (let i = 0; i < x.length; i++) {
-      x[i] = x[i] / sum;
-    }
-  }
-
-  return x;
-}
-*/
 function minimizeNelderMead(func, initialX, constraints, bounds, options = {}) {
   const maxIterations = options.maxIterations || 2000; // Increase iterations
   const tolerance = options.tolerance || 1e-8; // Increase precision
