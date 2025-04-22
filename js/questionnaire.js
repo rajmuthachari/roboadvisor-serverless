@@ -1,7 +1,6 @@
 /**
  * Questionnaire Handling Functions for Robo Advisor
  * Manages the risk profiling questionnaire and risk profile calculation
- * Improved version to match Project 1's approach for calculating risk aversion
  */
 
 // Show current question
@@ -15,36 +14,36 @@ function showCurrentQuestion() {
 
     // Create question HTML
     let html = `
-            <div class="mb-4">
-                <h3 class="text-xl font-semibold">Question ${
-                  currentQuestionIndex + 1
-                } of ${questionnaireData.questions.length}</h3>
-                <p class="text-lg mt-2">${question}</p>
-            </div>
-            <div class="space-y-3">
-        `;
+          <div class="mb-4">
+              <h3 class="text-xl font-semibold">Question ${
+                currentQuestionIndex + 1
+              } of ${questionnaireData.questions.length}</h3>
+              <p class="text-lg mt-2">${question}</p>
+          </div>
+          <div class="space-y-3">
+      `;
 
     // Add options
     options.forEach((option, index) => {
       const isSelected =
         appState.questionResponses[currentQuestionIndex] === index + 1;
       html += `
-                <div class="p-3 rounded-lg ${
-                  isSelected
-                    ? "bg-blue-100 border-blue-500 border-2"
-                    : "bg-white border border-gray-300 hover:bg-gray-50"
-                }" 
-                     data-option="${index + 1}" 
-                     onclick="selectOption(${index + 1})">
-                    <label class="flex items-center cursor-pointer">
-                        <input type="radio" name="question-${currentQuestionIndex}" value="${
+              <div class="p-3 rounded-lg ${
+                isSelected
+                  ? "bg-blue-100 border-blue-500 border-2"
+                  : "bg-white border border-gray-300 hover:bg-gray-50"
+              }" 
+                   data-option="${index + 1}" 
+                   onclick="selectOption(${index + 1})">
+                  <label class="flex items-center cursor-pointer">
+                      <input type="radio" name="question-${currentQuestionIndex}" value="${
         index + 1
       }" 
-                               ${isSelected ? "checked" : ""} class="mr-2">
-                        <span>${option}</span>
-                    </label>
-                </div>
-            `;
+                             ${isSelected ? "checked" : ""} class="mr-2">
+                      <span>${option}</span>
+                  </label>
+              </div>
+          `;
     });
 
     html += "</div>";
@@ -96,10 +95,8 @@ function selectOption(optionValue) {
       option.querySelector("input").checked = false;
     }
   });
-
-  // Enable next button automatically when an option is selected
-  document.getElementById("btn-next-question").disabled = false;
 }
+
 // Handle previous question button
 function handlePrevQuestion() {
   if (appState.currentQuestionIndex > 0) {
@@ -108,6 +105,7 @@ function handlePrevQuestion() {
   }
 }
 
+// Handle next question button
 function handleNextQuestion() {
   // If no option is selected, show alert
   if (!appState.questionResponses[appState.currentQuestionIndex]) {
@@ -120,9 +118,6 @@ function handleNextQuestion() {
     appState.currentQuestionIndex ===
     questionnaireData.questions.length - 1
   ) {
-    // This line is critical - call calculateRiskProfile directly here
-    calculateRiskProfile();
-    // Then navigate to the risk profile section
     navigateTo("section-risk-profile");
     return;
   }
@@ -146,12 +141,71 @@ function handleNextQuestion() {
 // Reset questionnaire
 function resetQuestionnaire() {
   appState.currentQuestionIndex = 0;
-  appState.questionResponses = Array(questionnaireData.questions.length).fill(
+  appState.questionResponses = [];
+  showCurrentQuestion();
+}
+
+/*
+// Calculate risk profile based on questionnaire responses
+function calculateRiskProfile() {
+  // Calculate total score - in this case, higher scores mean more risk tolerance
+  const totalScore = appState.questionResponses.reduce(
+    (sum, response) => sum + response,
     0
   );
-  showCurrentQuestion();
-  updateProgress(20); // Reset progress bar
+
+  // Calculate the final risk score (inverted)
+  const finalScore = 96 - totalScore; // For a 16-question survey with 5 points per question
+
+  // Map to risk aversion parameter and risk profile
+  let riskProfile, riskAversion;
+
+  if (finalScore >= 76) {
+    riskProfile = "Aggressive";
+    riskAversion = 1.5;
+  } else if (finalScore >= 61) {
+    riskProfile = "Growth-Oriented";
+    riskAversion = 2.5;
+  } else if (finalScore >= 46) {
+    riskProfile = "Moderate";
+    riskAversion = 3.5;
+  } else if (finalScore >= 31) {
+    riskProfile = "Conservative";
+    riskAversion = 6.0;
+  } else {
+    riskProfile = "Very Conservative";
+    riskAversion = 12.0;
+  }
+
+  // Extract investment knowledge and time horizon from responses
+  const knowledgeLevel = appState.questionResponses[3]; // Question 4
+  const timeHorizon = appState.questionResponses[1]; // Question 2
+
+  const knowledgeLabels = [
+    "Very Limited",
+    "Basic",
+    "Moderate",
+    "Good",
+    "Advanced",
+  ];
+  const timeHorizonLabels = [
+    "< 3 years",
+    "3-5 years",
+    "6-10 years",
+    "11-20 years",
+    "> 20 years",
+  ];
+
+  // Update application state
+  appState.riskProfile = riskProfile;
+  appState.riskAversion = riskAversion;
+  appState.knowledgeLevel = knowledgeLabels[knowledgeLevel - 1];
+  appState.timeHorizon = timeHorizonLabels[timeHorizon - 1];
+
+  // Update UI
+  updateRiskProfileUI();
 }
+*/
 
 /**
  * Calculate risk profile based on questionnaire responses
@@ -232,203 +286,53 @@ function calculateRiskProfile() {
   updateProgress(80); // Update progress after risk profile calculation
 }
 
-// Calculate optimal portfolio using the improved portfolio.js functions
-function calculateOptimalPortfolio(returns, covMatrix, riskAversion) {
-  // Use our utility-based optimization
-  const result = optimizePortfolioByRiskAversion(
-    returns,
-    covMatrix,
-    riskAversion
-  );
-
-  // Match Project 1's approach for filtering significant weights
-  const significantWeights = {};
-  let significantSum = 0;
-
-  // Map weight indices back to fund names
-  const fundNames = Object.keys(portfolioData.fundData);
-
-  result.weights.forEach((weight, index) => {
-    if (weight > 0.01) {
-      // Only keep weights > 1%
-      significantWeights[fundNames[index]] = weight;
-      significantSum += weight;
-    }
-  });
-
-  // Normalize weights to sum to 1
-  const normalizedWeights = {};
-  Object.entries(significantWeights).forEach(([fund, weight]) => {
-    normalizedWeights[fund] =
-      Math.round((weight / significantSum) * 10000) / 10000;
-  });
-
-  return {
-    full_allocation: Object.fromEntries(
-      result.weights.map((w, i) => [fundNames[i], w])
-    ),
-    recommended_allocation: normalizedWeights,
-    portfolio_stats: result.stats,
-  };
-}
-
-// Update risk profile UI with improved visualization
+// Update risk profile UI
 function updateRiskProfileUI() {
   // Update risk profile result
   const riskProfileResult = document.getElementById("risk-profile-result");
   riskProfileResult.innerHTML = `
-        <h3 class="text-2xl font-bold mb-3">Your Risk Profile: <span class="text-blue-700">${
-          appState.riskProfile
-        }</span></h3>
-        <p class="mb-3">Risk Aversion Parameter: ${appState.riskAversion}</p>
-        <p class="mb-3">${riskProfiles[appState.riskProfile].description}</p>
-        <div class="bg-blue-100 p-3 rounded">
-            <h4 class="font-semibold mb-1">Recommended Asset Allocation:</h4>
-            <p>${riskProfiles[appState.riskProfile].recommendedAssetMix}</p>
-        </div>
-    `;
+      <h3 class="text-2xl font-bold mb-3">Your Risk Profile: <span class="text-blue-700">${
+        appState.riskProfile
+      }</span></h3>
+      <p class="mb-3">Risk Aversion Parameter: ${appState.riskAversion}</p>
+      <p class="mb-3">${riskProfiles[appState.riskProfile].description}</p>
+      <div class="bg-blue-100 p-3 rounded">
+          <h4 class="font-semibold mb-1">Recommended Asset Allocation:</h4>
+          <p>${riskProfiles[appState.riskProfile].recommendedAssetMix}</p>
+      </div>
+  `;
 
   // Update risk profile explanation
   const riskProfileExplanation = document.getElementById(
     "risk-profile-explanation"
   );
   riskProfileExplanation.innerHTML = `
-        <p class="mb-4">Based on your responses to our comprehensive questionnaire, we've determined that your investment approach aligns with a <strong>${appState.riskProfile}</strong> risk profile. This assessment considers your time horizon, investment knowledge, financial situation, and psychological comfort with market fluctuations.</p>
-        <p>Your profile suggests you should consider a portfolio that balances risk and return in a way that aligns with your personal preferences and financial goals.</p>
-        <p class="mt-4">Your risk profile score is <strong>${appState.riskProfileScore}</strong> out of 96, with higher scores indicating higher risk tolerance.</p>
-    `;
+      <p class="mb-4">Based on your responses to our comprehensive questionnaire, we've determined that your investment approach aligns with a <strong>${appState.riskProfile}</strong> risk profile. This assessment considers your time horizon, investment knowledge, financial situation, and psychological comfort with market fluctuations.</p>
+      <p>Your profile suggests you should consider a portfolio that balances risk and return in a way that aligns with your personal preferences and financial goals.</p>
+  `;
 
   // Update time horizon content
   const timeHorizonContent = document.getElementById("time-horizon-content");
   timeHorizonContent.innerHTML = `
-        <p class="mb-2">Your selected time horizon: <strong>${
-          appState.timeHorizon
-        }</strong></p>
-        <p>${riskProfiles[appState.riskProfile].timeHorizonAdvice}</p>
-    `;
+      <p class="mb-2">Your selected time horizon: <strong>${
+        appState.timeHorizon
+      }</strong></p>
+      <p>${riskProfiles[appState.riskProfile].timeHorizonAdvice}</p>
+  `;
 
   // Update investment knowledge content
   const investmentKnowledgeContent = document.getElementById(
     "investment-knowledge-content"
   );
   investmentKnowledgeContent.innerHTML = `
-        <p class="mb-2">Your investment knowledge: <strong>${
-          appState.knowledgeLevel
-        }</strong></p>
-        <p>${riskProfiles[appState.riskProfile].knowledgeAdvice}</p>
-    `;
-
-  // Display recommended portfolio if available
-  if (appState.recommendedPortfolio) {
-    displayRecommendedPortfolio(appState.recommendedPortfolio);
-  }
+      <p class="mb-2">Your investment knowledge: <strong>${
+        appState.knowledgeLevel
+      }</strong></p>
+      <p>${riskProfiles[appState.riskProfile].knowledgeAdvice}</p>
+  `;
 
   // Create risk dial chart
   createRiskDialChart(appState.riskProfile);
-}
-
-// Display recommended portfolio allocations with improved visualization
-function displayRecommendedPortfolio(portfolio) {
-  const container = document.getElementById("recommended-portfolio");
-  if (!container) return;
-
-  // Format weights into HTML
-  const allocations = Object.entries(portfolio.recommended_allocation)
-    .sort((a, b) => b[1] - a[1]) // Sort by weight descending
-    .map(([fund, weight]) => {
-      const percentage = (weight * 100).toFixed(1);
-      const fundData = portfolioData.fundData[fund];
-      const assetClass = portfolioData.fundAssetClasses[fund];
-
-      // Get color based on asset class
-      const colorClass = getAssetClassColor(assetClass);
-
-      return `
-                <div class="mb-3 p-3 rounded border ${colorClass}">
-                    <div class="flex justify-between mb-1">
-                        <span class="font-semibold">${fund}</span>
-                        <span class="font-bold">${percentage}%</span>
-                    </div>
-                    <div class="text-sm text-gray-600">${assetClass}</div>
-                    <div class="mt-2 bg-gray-200 rounded-full h-2.5">
-                        <div class="h-2.5 rounded-full bg-blue-600" style="width: ${percentage}%"></div>
-                    </div>
-                </div>
-            `;
-    })
-    .join("");
-
-  // Add portfolio statistics
-  const stats = portfolio.portfolio_stats;
-  const portfolioStats = `
-        <div class="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h4 class="text-lg font-semibold mb-3">Expected Portfolio Performance</h4>
-            <div class="grid grid-cols-2 gap-4">
-                <div class="p-3 bg-white rounded shadow-sm">
-                    <div class="text-sm text-gray-500">Annual Return</div>
-                    <div class="text-xl font-bold">${(
-                      stats.return * 100
-                    ).toFixed(2)}%</div>
-                </div>
-                <div class="p-3 bg-white rounded shadow-sm">
-                    <div class="text-sm text-gray-500">Annual Volatility</div>
-                    <div class="text-xl font-bold">${(
-                      stats.volatility * 100
-                    ).toFixed(2)}%</div>
-                </div>
-                <div class="p-3 bg-white rounded shadow-sm">
-                    <div class="text-sm text-gray-500">Sharpe Ratio</div>
-                    <div class="text-xl font-bold">${stats.sharpeRatio.toFixed(
-                      2
-                    )}</div>
-                </div>
-                <div class="p-3 bg-white rounded shadow-sm">
-                    <div class="text-sm text-gray-500">Utility Score</div>
-                    <div class="text-xl font-bold">${stats.utility.toFixed(
-                      4
-                    )}</div>
-                </div>
-            </div>
-        </div>
-    `;
-
-  // Add a note about rebalancing
-  const rebalancingNote = `
-        <div class="mt-4 p-3 bg-yellow-50 rounded border border-yellow-200">
-            <h4 class="font-semibold text-yellow-800">Rebalancing Recommendation</h4>
-            <p class="mt-1 text-yellow-700">
-                To maintain this optimal allocation, consider rebalancing your portfolio quarterly or when any position drifts more than 5% from its target weight.
-            </p>
-        </div>
-    `;
-
-  // Update the container
-  container.innerHTML = `
-        <h3 class="text-xl font-bold mb-4">Recommended Portfolio Allocation</h3>
-        <p class="mb-4">Based on your ${appState.riskProfile} risk profile, we recommend the following portfolio allocation:</p>
-        ${allocations}
-        ${portfolioStats}
-        ${rebalancingNote}
-    `;
-
-  // Create allocation pie chart
-  createAllocationPieChart(portfolio.recommended_allocation);
-}
-
-// Helper function to get color class based on asset class
-function getAssetClassColor(assetClass) {
-  const assetClassColors = {
-    "Alternative - Commodities": "bg-amber-50 border-amber-200",
-    "Equity - ESG": "bg-green-50 border-green-200",
-    "Equity - Technology": "bg-purple-50 border-purple-200",
-    "Equity - Singapore": "bg-red-50 border-red-200",
-    "Equity - India": "bg-orange-50 border-orange-200",
-    "Equity - China": "bg-blue-50 border-blue-200",
-    "Equity - Sector Specific": "bg-indigo-50 border-indigo-200",
-    "Equity - Growth": "bg-pink-50 border-pink-200",
-  };
-
-  return assetClassColors[assetClass] || "bg-gray-50 border-gray-200";
 }
 
 // Create risk dial chart with fixed label positioning
@@ -516,12 +420,129 @@ function createRiskDialChart(riskProfile) {
   // Place labels manually with proper positioning
   const labelY = centerY - radius - 15; // Place all labels at top
 
+  /*
   ctx.textAlign = "center";
   ctx.fillText(shortLabels[0], centerX - radius * 0.8, labelY);
   ctx.fillText(shortLabels[1], centerX - radius * 0.4, labelY);
   ctx.fillText(shortLabels[2], centerX, labelY);
   ctx.fillText(shortLabels[3], centerX + radius * 0.4, labelY);
   ctx.fillText(shortLabels[4], centerX + radius * 0.8, labelY);
+  */
+}
+
+// Create allocation pie chart with improved visualization
+function createAllocationPieChart(allocation) {
+  const canvas = document.getElementById("allocation-pie-chart");
+  if (!canvas || !canvas.getContext) return;
+
+  // Set up canvas
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+
+  // Convert allocation to array of [fund, weight] pairs
+  const allocations = Object.entries(allocation);
+
+  // Define colors for pie slices
+  const colors = [
+    "#3B82F6",
+    "#EF4444",
+    "#10B981",
+    "#F59E0B",
+    "#6366F1",
+    "#EC4899",
+    "#8B5CF6",
+    "#14B8A6",
+    "#F97316",
+    "#06B6D4",
+  ];
+
+  // Calculate total (should be 1, but just in case)
+  const total = allocations.reduce((sum, [_, weight]) => sum + weight, 0);
+
+  // Draw pie chart
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(width, height) / 2 - 20;
+
+  let startAngle = 0;
+
+  // Draw each slice
+  allocations.forEach(([fund, weight], index) => {
+    const sliceAngle = (weight / total) * 2 * Math.PI;
+    const endAngle = startAngle + sliceAngle;
+
+    // Draw slice
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+    ctx.closePath();
+
+    // Fill slice
+    ctx.fillStyle = colors[index % colors.length];
+    ctx.fill();
+
+    // Add fund name if slice is large enough
+    if (weight / total > 0.05) {
+      const labelAngle = startAngle + sliceAngle / 2;
+      const labelRadius = radius * 0.7;
+      const labelX = centerX + labelRadius * Math.cos(labelAngle);
+      const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Truncate fund name if needed
+      const maxLength = 12;
+      const displayName =
+        fund.length > maxLength ? fund.substring(0, maxLength) + "..." : fund;
+
+      ctx.fillText(displayName, labelX, labelY);
+    }
+
+    startAngle = endAngle;
+  });
+
+  // Add legend
+  const legendX = 10;
+  let legendY = height - 10 - allocations.length * 25;
+
+  // Ensure legend doesn't go too high
+  if (legendY < 10) legendY = 10;
+
+  // Draw legend
+  allocations.forEach(([fund, weight], index) => {
+    const color = colors[index % colors.length];
+    const percentage = (weight * 100).toFixed(1);
+
+    // Draw color box
+    ctx.fillStyle = color;
+    ctx.fillRect(legendX, legendY, 15, 15);
+
+    // Draw text
+    ctx.font = "12px Arial";
+    ctx.fillStyle = "#374151";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+
+    // Truncate fund name if needed
+    const maxLength = 15;
+    const displayName =
+      fund.length > maxLength ? fund.substring(0, maxLength) + "..." : fund;
+
+    ctx.fillText(
+      `${displayName} (${percentage}%)`,
+      legendX + 25,
+      legendY + 7.5
+    );
+
+    legendY += 25;
+  });
 }
 
 // Export functions for use in the application

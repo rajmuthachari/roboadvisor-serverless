@@ -557,119 +557,117 @@ function createProjectionChart(scenario) {
   projectionContainer.appendChild(summaryDiv);
 }
 
-/*
 // Create allocation pie chart with improved visualization
 function createAllocationPieChart(allocation) {
-    const canvas = document.getElementById("allocation-pie-chart");
-    if (!canvas || !canvas.getContext) return;
-  
-    // Set up canvas
-    const ctx = canvas.getContext("2d");
-    const width = canvas.width;
-    const height = canvas.height;
-  
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
-  
-    // Convert allocation to array of [fund, weight] pairs
-    const allocations = Object.entries(allocation);
-  
-    // Define colors for pie slices
-    const colors = [
-      "#3B82F6",
-      "#EF4444",
-      "#10B981",
-      "#F59E0B",
-      "#6366F1",
-      "#EC4899",
-      "#8B5CF6",
-      "#14B8A6",
-      "#F97316",
-      "#06B6D4",
-    ];
-  
-    // Calculate total (should be 1, but just in case)
-    const total = allocations.reduce((sum, [_, weight]) => sum + weight, 0);
-  
-    // Draw pie chart
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const radius = Math.min(width, height) / 2 - 20;
-  
-    let startAngle = 0;
-  
-    // Draw each slice
-    allocations.forEach(([fund, weight], index) => {
-      const sliceAngle = (weight / total) * 2 * Math.PI;
-      const endAngle = startAngle + sliceAngle;
-  
-      // Draw slice
-      ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
-      ctx.closePath();
-  
-      // Fill slice
-      ctx.fillStyle = colors[index % colors.length];
-      ctx.fill();
-  
-      // Add fund name if slice is large enough
-      if (weight / total > 0.05) {
-        const labelAngle = startAngle + sliceAngle / 2;
-        const labelRadius = radius * 0.7;
-        const labelX = centerX + labelRadius * Math.cos(labelAngle);
-        const labelY = centerY + labelRadius * Math.sin(labelAngle);
-  
-        ctx.font = "12px Arial";
-        ctx.fillStyle = "#FFFFFF";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-  
-        // Truncate fund name if needed
-        const maxLength = 12;
-        const displayName =
-          fund.length > maxLength ? fund.substring(0, maxLength) + "..." : fund;
-  
-        ctx.fillText(displayName, labelX, labelY);
-      }
-  
-      startAngle = endAngle;
-    });
-  
-    // Add legend
-    const legendX = 10;
-    let legendY = height - 10 - allocations.length * 25;
-  
-    // Ensure legend doesn't go too high
-    if (legendY < 10) legendY = 10;
-  
-    // Draw legend
-    allocations.forEach(([fund, weight], index) => {
-      const color = colors[index % colors.length];
-      const percentage = (weight * 100).toFixed(1);
-  
-      // Draw color box
-      ctx.fillStyle = color;
-      ctx.fillRect(legendX, legendY, 15, 15);
-  
-      // Draw text
+  const canvas = document.getElementById("allocation-pie-chart");
+  if (!canvas || !canvas.getContext) return;
+
+  // Set up canvas
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+
+  // Convert allocation to array of [fund, weight] pairs
+  const allocations = Object.entries(allocation);
+
+  // Define colors for pie slices
+  const colors = [
+    "#3B82F6",
+    "#EF4444",
+    "#10B981",
+    "#F59E0B",
+    "#6366F1",
+    "#EC4899",
+    "#8B5CF6",
+    "#14B8A6",
+    "#F97316",
+    "#06B6D4",
+  ];
+
+  // Calculate total (should be 1, but just in case)
+  const total = allocations.reduce((sum, [_, weight]) => sum + weight, 0);
+
+  // Draw pie chart
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(width, height) / 2 - 20;
+
+  let startAngle = 0;
+
+  // Draw each slice
+  allocations.forEach(([fund, weight], index) => {
+    const sliceAngle = (weight / total) * 2 * Math.PI;
+    const endAngle = startAngle + sliceAngle;
+
+    // Draw slice
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+    ctx.closePath();
+
+    // Fill slice
+    ctx.fillStyle = colors[index % colors.length];
+    ctx.fill();
+
+    // Add fund name if slice is large enough
+    if (weight / total > 0.05) {
+      const labelAngle = startAngle + sliceAngle / 2;
+      const labelRadius = radius * 0.7;
+      const labelX = centerX + labelRadius * Math.cos(labelAngle);
+      const labelY = centerY + labelRadius * Math.sin(labelAngle);
+
       ctx.font = "12px Arial";
-      ctx.fillStyle = "#374151";
-      ctx.textAlign = "left";
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-  
+
       // Truncate fund name if needed
-      const maxLength = 15;
+      const maxLength = 12;
       const displayName =
         fund.length > maxLength ? fund.substring(0, maxLength) + "..." : fund;
-  
-      ctx.fillText(
-        `${displayName} (${percentage}%)`,
-        legendX + 25,
-        legendY + 7.5
-      );
-  
-      legendY += 25;
-    });
-  }
-*/
+
+      ctx.fillText(displayName, labelX, labelY);
+    }
+
+    startAngle = endAngle;
+  });
+
+  // Add legend
+  const legendX = 10;
+  let legendY = height - 10 - allocations.length * 25;
+
+  // Ensure legend doesn't go too high
+  if (legendY < 10) legendY = 10;
+
+  // Draw legend
+  allocations.forEach(([fund, weight], index) => {
+    const color = colors[index % colors.length];
+    const percentage = (weight * 100).toFixed(1);
+
+    // Draw color box
+    ctx.fillStyle = color;
+    ctx.fillRect(legendX, legendY, 15, 15);
+
+    // Draw text
+    ctx.font = "12px Arial";
+    ctx.fillStyle = "#374151";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+
+    // Truncate fund name if needed
+    const maxLength = 15;
+    const displayName =
+      fund.length > maxLength ? fund.substring(0, maxLength) + "..." : fund;
+
+    ctx.fillText(
+      `${displayName} (${percentage}%)`,
+      legendX + 25,
+      legendY + 7.5
+    );
+
+    legendY += 25;
+  });
+}
