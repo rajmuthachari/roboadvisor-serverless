@@ -80,7 +80,10 @@ function createRiskReturnScatter() {
     if (assetClass.includes("Equity")) return "rgb(59, 130, 246)"; // Blue
     if (assetClass.includes("Fixed Income")) return "rgb(16, 185, 129)"; // Green
     if (assetClass.includes("Real Estate")) return "rgb(245, 158, 11)"; // Yellow
+<<<<<<< Updated upstream
     if (assetClass.includes("Alternative")) return "rgb(139, 92, 246)"; // Purple
+=======
+>>>>>>> Stashed changes
     return "rgb(156, 163, 175)"; // Gray
   });
 
@@ -160,7 +163,11 @@ function createPortfolioAllocationChart() {
     Equity: "rgb(59, 130, 246)",
     "Fixed Income": "rgb(16, 185, 129)",
     "Real Estate": "rgb(245, 158, 11)",
+<<<<<<< Updated upstream
     Alternative: "rgb(139, 92, 246)",
+=======
+    Alternatives: "rgb(139, 92, 246)",
+>>>>>>> Stashed changes
     Cash: "rgb(156, 163, 175)",
   };
 
@@ -213,6 +220,7 @@ function createPortfolioAllocationChart() {
 
 // Create efficient frontier chart
 function createEfficientFrontierChart() {
+<<<<<<< Updated upstream
   // Extract returns
   const fundNames = Object.keys(fundData);
   const returns = {};
@@ -222,6 +230,14 @@ function createEfficientFrontierChart() {
 
   // Generate efficient frontier points
   const efResults = generateEfficientFrontier(returns, covarianceMatrix);
+=======
+  // Extract returns for all funds
+  const fundNames = Object.keys(fundData);
+  const returns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+
+  // Generate efficient frontier points
+  const frontierPoints = generateEfficientFrontier(returns, covarianceMatrix);
+>>>>>>> Stashed changes
 
   // Get individual funds data
   const fundReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
@@ -237,17 +253,27 @@ function createEfficientFrontierChart() {
 
   // Create data for scatter plot
   const data = [
+<<<<<<< Updated upstream
     // Efficient frontier with short sales
     {
       x: efResults.efWithShort.volatilities,
       y: efResults.efWithShort.returns,
       mode: "lines",
       name: "Efficient Frontier (With Short Sales)",
+=======
+    // Efficient frontier
+    {
+      x: frontierPoints.volatilities,
+      y: frontierPoints.returns,
+      mode: "lines",
+      name: "Efficient Frontier",
+>>>>>>> Stashed changes
       line: {
         color: "rgba(59, 130, 246, 0.7)",
         width: 3,
       },
     },
+<<<<<<< Updated upstream
     // Efficient frontier without short sales
     {
       x: efResults.efNoShort.volatilities,
@@ -267,6 +293,16 @@ function createEfficientFrontierChart() {
         0.03 +
           efResults.marketPortfolioNoShort.sharpe *
             efResults.marketPortfolioNoShort.volatility *
+=======
+    // Capital Market Line
+    {
+      x: [0, frontierPoints.maxSharpeVolatility * 1.5],
+      y: [
+        0.03,
+        0.03 +
+          frontierPoints.maxSharpeRatio *
+            frontierPoints.maxSharpeVolatility *
+>>>>>>> Stashed changes
             1.5,
       ],
       mode: "lines",
@@ -290,7 +326,11 @@ function createEfficientFrontierChart() {
         color: "rgba(107, 114, 128, 0.7)",
       },
     },
+<<<<<<< Updated upstream
     // Optimal portfolio (from risk aversion)
+=======
+    // Optimal portfolio
+>>>>>>> Stashed changes
     {
       x: [appState.optimalPortfolio.stats.volatility],
       y: [appState.optimalPortfolio.stats.return],
@@ -302,6 +342,7 @@ function createEfficientFrontierChart() {
         symbol: "star",
       },
     },
+<<<<<<< Updated upstream
     // Global Minimum Variance Portfolio (No Short Sales)
     {
       x: [efResults.gmvpNoShort.volatility],
@@ -318,6 +359,12 @@ function createEfficientFrontierChart() {
     {
       x: [efResults.marketPortfolioNoShort.volatility],
       y: [efResults.marketPortfolioNoShort.return],
+=======
+    // Maximum Sharpe Ratio Portfolio
+    {
+      x: [frontierPoints.maxSharpeVolatility],
+      y: [frontierPoints.maxSharpeReturn],
+>>>>>>> Stashed changes
       mode: "markers",
       name: "Max Sharpe Ratio",
       marker: {
@@ -326,6 +373,21 @@ function createEfficientFrontierChart() {
         symbol: "diamond",
       },
     },
+<<<<<<< Updated upstream
+=======
+    // Minimum Variance Portfolio
+    {
+      x: [frontierPoints.minVarianceVolatility],
+      y: [frontierPoints.minVarianceReturn],
+      mode: "markers",
+      name: "Min Variance",
+      marker: {
+        size: 10,
+        color: "rgba(245, 158, 11, 1)",
+        symbol: "circle",
+      },
+    },
+>>>>>>> Stashed changes
   ];
 
   // Create layout
@@ -572,6 +634,7 @@ function createProjectionChart(scenario) {
   projectionContainer.appendChild(summaryDiv);
 }
 
+<<<<<<< Updated upstream
 // Create risk dial chart
 function createRiskDialChart(riskProfile) {
   const canvas = document.getElementById("risk-dial-chart");
@@ -735,3 +798,121 @@ function calculateProjections(
     upperBound,
   };
 }
+=======
+/*
+// Create allocation pie chart with improved visualization
+function createAllocationPieChart(allocation) {
+    const canvas = document.getElementById("allocation-pie-chart");
+    if (!canvas || !canvas.getContext) return;
+  
+    // Set up canvas
+    const ctx = canvas.getContext("2d");
+    const width = canvas.width;
+    const height = canvas.height;
+  
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+  
+    // Convert allocation to array of [fund, weight] pairs
+    const allocations = Object.entries(allocation);
+  
+    // Define colors for pie slices
+    const colors = [
+      "#3B82F6",
+      "#EF4444",
+      "#10B981",
+      "#F59E0B",
+      "#6366F1",
+      "#EC4899",
+      "#8B5CF6",
+      "#14B8A6",
+      "#F97316",
+      "#06B6D4",
+    ];
+  
+    // Calculate total (should be 1, but just in case)
+    const total = allocations.reduce((sum, [_, weight]) => sum + weight, 0);
+  
+    // Draw pie chart
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const radius = Math.min(width, height) / 2 - 20;
+  
+    let startAngle = 0;
+  
+    // Draw each slice
+    allocations.forEach(([fund, weight], index) => {
+      const sliceAngle = (weight / total) * 2 * Math.PI;
+      const endAngle = startAngle + sliceAngle;
+  
+      // Draw slice
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      ctx.closePath();
+  
+      // Fill slice
+      ctx.fillStyle = colors[index % colors.length];
+      ctx.fill();
+  
+      // Add fund name if slice is large enough
+      if (weight / total > 0.05) {
+        const labelAngle = startAngle + sliceAngle / 2;
+        const labelRadius = radius * 0.7;
+        const labelX = centerX + labelRadius * Math.cos(labelAngle);
+        const labelY = centerY + labelRadius * Math.sin(labelAngle);
+  
+        ctx.font = "12px Arial";
+        ctx.fillStyle = "#FFFFFF";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+  
+        // Truncate fund name if needed
+        const maxLength = 12;
+        const displayName =
+          fund.length > maxLength ? fund.substring(0, maxLength) + "..." : fund;
+  
+        ctx.fillText(displayName, labelX, labelY);
+      }
+  
+      startAngle = endAngle;
+    });
+  
+    // Add legend
+    const legendX = 10;
+    let legendY = height - 10 - allocations.length * 25;
+  
+    // Ensure legend doesn't go too high
+    if (legendY < 10) legendY = 10;
+  
+    // Draw legend
+    allocations.forEach(([fund, weight], index) => {
+      const color = colors[index % colors.length];
+      const percentage = (weight * 100).toFixed(1);
+  
+      // Draw color box
+      ctx.fillStyle = color;
+      ctx.fillRect(legendX, legendY, 15, 15);
+  
+      // Draw text
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#374151";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+  
+      // Truncate fund name if needed
+      const maxLength = 15;
+      const displayName =
+        fund.length > maxLength ? fund.substring(0, maxLength) + "..." : fund;
+  
+      ctx.fillText(
+        `${displayName} (${percentage}%)`,
+        legendX + 25,
+        legendY + 7.5
+      );
+  
+      legendY += 25;
+    });
+  }
+*/
+>>>>>>> Stashed changes
