@@ -345,7 +345,9 @@ function sortFunds(metric, descending = true) {
   updatePortfolioUI();
 }
 */
-function calculateOptimalPortfolio() {
+
+// v2-working
+/*function calculateOptimalPortfolio() {
   const fundNames = Object.keys(fundData);
   const numAssets = fundNames.length;
 
@@ -485,6 +487,349 @@ function calculateOptimalPortfolio() {
     appState.riskAversion,
     customConstraints
   );
+
+  // Calculate portfolio statistics
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    optimalWeights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility; // Assuming 3% risk-free rate
+
+  // Filter for significant allocations (> 1%)
+  const significantAllocations = {};
+  let totalSignificant = 0;
+
+  for (let i = 0; i < numAssets; i++) {
+    if (optimalWeights[i] > 0.01) {
+      significantAllocations[fundNames[i]] = optimalWeights[i];
+      totalSignificant += optimalWeights[i];
+    }
+  }
+
+  // Normalize significant allocations
+  for (const fund in significantAllocations) {
+    significantAllocations[fund] =
+      significantAllocations[fund] / totalSignificant;
+  }
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: optimalWeights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: Object.entries(significantAllocations).map(
+      ([fund, weight]) => ({ fund, weight })
+    ),
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+  };
+
+  // Validate the portfolio
+  validateOptimalPortfolio();
+
+  // Update UI
+  updatePortfolioUI();
+}
+*/
+
+// Complete updated calculateOptimalPortfolio function
+function calculateOptimalPortfolio() {
+  const fundNames = Object.keys(fundData);
+  const numAssets = fundNames.length;
+
+  // Extract annualized returns
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+
+  // Check for sufficient fixed income options for conservative portfolios
+  const fixedIncomeCount = fundNames.filter((fund) =>
+    fundData[fund].assetClass.includes("Fixed Income")
+  ).length;
+
+  if (
+    (appState.riskProfile === "Very Conservative" ||
+      appState.riskProfile === "Conservative") &&
+    fixedIncomeCount < 2
+  ) {
+    console.log(
+      "Not enough fixed income options for conservative portfolio. Using special allocation."
+    );
+    applySpecialConservativeAllocation();
+    return;
+  }
+
+  // Add risk profile based constraints
+  let customConstraints = [];
+
+  // Helper function to find indices of funds by asset class
+  function findIndicesOfFundsByAssetClass(assetClassSubstring) {
+    return fundNames.reduce((indices, fundName, index) => {
+      if (fundData[fundName].assetClass.includes(assetClassSubstring)) {
+        indices.push(index);
+      }
+      return indices;
+    }, []);
+  }
+
+  // Get indices for different asset classes
+  const equityFundIndices = findIndicesOfFundsByAssetClass("Equity");
+  const fixedIncomeFundIndices = findIndicesOfFundsByAssetClass("Fixed Income");
+  const alternativeFundIndices = findIndicesOfFundsByAssetClass("Alternative");
+
+  // Adjust risk aversion values with better separation
+  let riskAversionValue;
+
+  switch (appState.riskProfile) {
+    case "Very Conservative":
+      riskAversionValue = 12.0; // High but achievable
+      break;
+    case "Conservative":
+      riskAversionValue = 8.0; // Clear separation from Very Conservative
+      break;
+    case "Moderate":
+      riskAversionValue = 5.0; // Middle of the range
+      break;
+    case "Growth-Oriented":
+      riskAversionValue = 3.0; // Increased from 2.5 for better separation from Aggressive
+      break;
+    case "Aggressive":
+      riskAversionValue = 1.5; // Lower bound of original range
+      break;
+    default:
+      riskAversionValue = appState.riskAversion; // Fallback to original
+  }
+
+  // Add constraints based on risk profile
+  if (appState.riskProfile === "Very Conservative") {
+    // For very conservative, use heavy fixed income allocation
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return 0.2 - equityExposure; // Equity <= 20%
+      },
+    });
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return fixedIncomeExposure - 0.7; // Fixed Income >= 70%
+      },
+    });
+  } else if (appState.riskProfile === "Conservative") {
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return 0.4 - equityExposure; // Equity <= 40%
+      },
+    });
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return fixedIncomeExposure - 0.5; // Fixed Income >= 50%
+      },
+    });
+  } else if (appState.riskProfile === "Moderate") {
+    // Ensure balanced allocation for moderate profiles
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return equityExposure - 0.4; // Equity <= 40%
+      },
+    });
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return 0.6 - equityExposure; // Equity <= 60%
+      },
+    });
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return fixedIncomeExposure - 0.3; // Fixed Income >= 30%
+      },
+    });
+  } else if (appState.riskProfile === "Growth-Oriented") {
+    // For Growth-Oriented, require substantial but moderate equity (65-75%)
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return equityExposure - 0.65; // Equity >= 65%
+      },
+    });
+
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return 0.75 - equityExposure; // Equity <= 75%
+      },
+    });
+
+    // Also require more fixed income (15-25%) than Aggressive
+    if (fixedIncomeFundIndices.length > 0) {
+      customConstraints.push({
+        type: "ineq",
+        fun: function (weights) {
+          const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+            (sum, idx) => sum + weights[idx],
+            0
+          );
+          return fixedIncomeExposure - 0.15; // Fixed Income >= 15%
+        },
+      });
+
+      customConstraints.push({
+        type: "ineq",
+        fun: function (weights) {
+          const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+            (sum, idx) => sum + weights[idx],
+            0
+          );
+          return 0.25 - fixedIncomeExposure; // Fixed Income <= 25%
+        },
+      });
+    }
+  } else if (appState.riskProfile === "Aggressive") {
+    // For Aggressive profiles, require MORE equity exposure (at least 80%)
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return equityExposure - 0.8; // Equity >= 80%
+      },
+    });
+
+    // Also limit fixed income to max 10%
+    if (fixedIncomeFundIndices.length > 0) {
+      customConstraints.push({
+        type: "ineq",
+        fun: function (weights) {
+          const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+            (sum, idx) => sum + weights[idx],
+            0
+          );
+          return 0.1 - fixedIncomeExposure; // Fixed Income <= 10%
+        },
+      });
+    }
+  }
+
+  // For extreme profiles, consider direct target return approach
+  let customTargetReturn;
+
+  // For Very Conservative, directly target lower return/risk point
+  if (
+    appState.riskProfile === "Very Conservative" &&
+    customTargetReturn === undefined
+  ) {
+    // Find min variance portfolio
+    const minVolWeights = minimizeVolatility(meanReturns, covarianceMatrix);
+    const minVolReturn = calculatePortfolioReturn(meanReturns, minVolWeights);
+
+    // Target 110% of min variance return to keep it conservative but not extreme
+    customTargetReturn = minVolReturn * 1.1;
+  }
+
+  // For Aggressive, directly target a higher return than otherwise calculated
+  else if (
+    appState.riskProfile === "Aggressive" &&
+    customTargetReturn === undefined
+  ) {
+    // Find max Sharpe ratio portfolio
+    const maxSharpeWeights = maximizeSharpeRatio(meanReturns, covarianceMatrix);
+    const maxSharpeReturn = calculatePortfolioReturn(
+      meanReturns,
+      maxSharpeWeights
+    );
+
+    // Target slightly higher than max Sharpe for more aggressive stance
+    customTargetReturn = maxSharpeReturn * 1.1;
+  }
+
+  // Use either custom target return or standard optimization
+  let optimalWeights;
+  if (customTargetReturn !== undefined) {
+    try {
+      optimalWeights = minimizeVolatilityForTargetReturn(
+        meanReturns,
+        covarianceMatrix,
+        customTargetReturn,
+        customConstraints
+      );
+    } catch (e) {
+      console.warn(
+        "Error with custom target return optimization, falling back to standard method",
+        e
+      );
+      optimalWeights = optimizePortfolio(
+        meanReturns,
+        covarianceMatrix,
+        riskAversionValue,
+        customConstraints
+      );
+    }
+  } else {
+    optimalWeights = optimizePortfolio(
+      meanReturns,
+      covarianceMatrix,
+      riskAversionValue,
+      customConstraints
+    );
+  }
+
+  // Check if optimization succeeded (not all NaN or very small values)
+  const isValidOptimization = !optimalWeights.every(
+    (w) => isNaN(w) || Math.abs(w) < 1e-6
+  );
+
+  if (!isValidOptimization) {
+    console.warn(
+      "Optimization failed to produce valid weights. Using special allocation."
+    );
+    applySpecialConservativeAllocation();
+    return;
+  }
 
   // Calculate portfolio statistics
   const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
