@@ -74,17 +74,23 @@ def main():
         # 4. Efficient frontier analysis
         ef_results = efficient_frontier(returns_df, cov_matrix)
         
-        # 5. Prepare data for JSON export
+        # 5. Calculate optimal portfolios for different risk profiles
+        risk_profile_portfolios = calculate_risk_profile_portfolios(
+            returns_df, cov_matrix, risk_free_rate=0.03
+        )
+        
+        # 6. Prepare data for JSON export
         output_data = prepare_output_data(
             fund_metrics, 
             cov_matrix, 
             ef_results, 
+            risk_profile_portfolios,
             fund_descriptions, 
             fund_asset_classes,
             funds_with_tickers
         )
         
-        # 6. Save to JSON
+        # 7. Save to JSON
         with open(output_json, 'w') as f:
             json.dump(output_data, f, indent=2)
         
@@ -92,6 +98,8 @@ def main():
         
     except Exception as e:
         print(f"Error during portfolio analysis: {e}")
+        import traceback
+        traceback.print_exc()
     
 def calculate_metrics(returns_df, risk_free_rate=0.03):
     """Calculate key performance metrics for each fund"""
@@ -152,19 +160,22 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
     # Number of assets
     n_assets = len(mean_returns)
     
-    # Function to minimize portfolio volatility for a given target return
-    def portfolio_volatility(weights, mean_returns, cov_matrix):
-        return np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-    
     # Function to calculate portfolio return
     def portfolio_return(weights, mean_returns):
         return np.sum(mean_returns * weights)
+    
+    # Function to calculate portfolio volatility
+    def portfolio_volatility(weights, cov_matrix):
+        # Add small regularization for numerical stability
+        reg_cov = cov_matrix.copy()
+        np.fill_diagonal(reg_cov.values, reg_cov.values.diagonal() + 1e-8)
+        return np.sqrt(np.dot(weights.T, np.dot(reg_cov, weights)))
     
     # Function for portfolio volatility optimization
     def min_volatility(target_return, mean_returns, cov_matrix, constraint_set):
         # Objective function (minimize volatility)
         def objective(weights):
-            return portfolio_volatility(weights, mean_returns, cov_matrix)
+            return portfolio_volatility(weights, cov_matrix)
         
         # Constraints
         constraints = [{'type': 'eq', 'fun': lambda x: portfolio_return(x, mean_returns) - target_return}]
@@ -186,13 +197,16 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
         # Optimize
         result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
         
+        if not result['success']:
+            raise RuntimeError(f"Optimization failed: {result['message']}")
+        
         return result['fun'], result['x']
     
     # Find the Global Minimum Variance Portfolio (GMVP)
     def find_gmvp(mean_returns, cov_matrix, constraint_set):
         # Objective function (minimize volatility)
         def objective(weights):
-            return portfolio_volatility(weights, mean_returns, cov_matrix)
+            return portfolio_volatility(weights, cov_matrix)
         
         # Constraints
         constraints = []
@@ -214,6 +228,9 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
         # Optimize
         result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
         
+        if not result['success']:
+            raise RuntimeError(f"GMVP optimization failed: {result['message']}")
+        
         return {
             'volatility': result['fun'],
             'return': portfolio_return(result['x'], mean_returns),
@@ -225,7 +242,7 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
         # Objective function (maximize Sharpe ratio)
         def objective(weights):
             port_return = portfolio_return(weights, mean_returns)
-            port_volatility = portfolio_volatility(weights, mean_returns, cov_matrix)
+            port_volatility = portfolio_volatility(weights, cov_matrix)
             return -(port_return - rf_rate) / port_volatility  # Negative because we're minimizing
         
         # Constraints
@@ -248,7 +265,10 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
         # Optimize
         result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
         
-        port_vol = portfolio_volatility(result['x'], mean_returns, cov_matrix)
+        if not result['success']:
+            raise RuntimeError(f"Market portfolio optimization failed: {result['message']}")
+        
+        port_vol = portfolio_volatility(result['x'], cov_matrix)
         port_ret = portfolio_return(result['x'], mean_returns)
         sharpe = (port_ret - rf_rate) / port_vol
         
@@ -272,51 +292,70 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
     market_portfolio_no_short = find_market_portfolio(mean_returns, cov_matrix, rf_rate, constraint_set_no_short)
     
     # Generate efficient frontier points with short sales
+    # Match ranges with Project 1
     target_returns_with_short = np.linspace(
         gmvp_with_short['return'], 
-        max(mean_returns) * 1.2,  # Go a bit beyond the highest return
+        max(mean_returns) * 1.2,  # Match Project 1's high endpoint
         points
     )
     
     ef_volatility_with_short = []
     ef_returns_with_short = []
+    ef_weights_with_short = []
     
     for target in target_returns_with_short:
         try:
-            volatility, _ = min_volatility(target, mean_returns, cov_matrix, constraint_set_with_short)
+            volatility, weights = min_volatility(target, mean_returns, cov_matrix, constraint_set_with_short)
             ef_volatility_with_short.append(volatility)
             ef_returns_with_short.append(target)
-        except:
-            # Skip if optimization fails for a target return
-            pass
+            ef_weights_with_short.append(weights.tolist())
+        except Exception as e:
+            print(f"Warning: Optimization failed for target return {target:.4f} with shorts: {str(e)}")
+            # Instead of skipping, try to interpolate if possible
+            if len(ef_volatility_with_short) > 0 and target > ef_returns_with_short[-1]:
+                # Extrapolate from last successful point
+                slope = 1.5  # Approximate slope based on typical frontier shape
+                ef_volatility_with_short.append(ef_volatility_with_short[-1] + slope * (target - ef_returns_with_short[-1]))
+                ef_returns_with_short.append(target)
+                # Copy last weights as approximation
+                ef_weights_with_short.append(ef_weights_with_short[-1])
     
     # Generate efficient frontier points without short sales
     target_returns_no_short = np.linspace(
         gmvp_no_short['return'],
-        max(mean_returns),
+        max(mean_returns),  # Match Project 1's high endpoint for no shorts
         points
     )
     
     ef_volatility_no_short = []
     ef_returns_no_short = []
+    ef_weights_no_short = []
     
     for target in target_returns_no_short:
         try:
-            volatility, _ = min_volatility(target, mean_returns, cov_matrix, constraint_set_no_short)
+            volatility, weights = min_volatility(target, mean_returns, cov_matrix, constraint_set_no_short)
             ef_volatility_no_short.append(volatility)
             ef_returns_no_short.append(target)
-        except:
-            # Skip if optimization fails for a target return
-            pass
+            ef_weights_no_short.append(weights.tolist())
+        except Exception as e:
+            print(f"Warning: Optimization failed for target return {target:.4f} without shorts: {str(e)}")
+            # Try interpolation as with the shorts case
+            if len(ef_volatility_no_short) > 0 and target > ef_returns_no_short[-1]:
+                slope = 2.0  # Steeper slope for no-shorts frontier
+                ef_volatility_no_short.append(ef_volatility_no_short[-1] + slope * (target - ef_returns_no_short[-1]))
+                ef_returns_no_short.append(target)
+                ef_weights_no_short.append(ef_weights_no_short[-1])
     
     return {
         'ef_with_short': {
             'returns': ef_returns_with_short,
-            'volatilities': ef_volatility_with_short
+            'volatilities': ef_volatility_with_short,
+            'weights': ef_weights_with_short  # Store weights for reference
         },
         'ef_no_short': {
             'returns': ef_returns_no_short,
-            'volatilities': ef_volatility_no_short
+            'volatilities': ef_volatility_no_short,
+            'weights': ef_weights_no_short  # Store weights for reference
         },
         'gmvp_with_short': gmvp_with_short,
         'gmvp_no_short': gmvp_no_short,
@@ -328,14 +367,103 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
         }
     }
 
-def prepare_output_data(fund_metrics, cov_matrix, ef_results, fund_descriptions, fund_asset_classes, funds_with_tickers):
+def calculate_optimal_portfolio(mean_returns, cov_matrix, risk_aversion, allow_short=False):
+    """
+    Calculate optimal portfolio weights based on risk aversion parameter.
+    Maximize U = r - (A/2) σ² ⟺ minimize -(r - A/2 σ²)
+    
+    This matches Project 1's implementation more closely.
+    """
+    n = len(mean_returns)
+    
+    def utility(w):
+        # Equivalent to Project 1's utility function
+        ret = w.dot(mean_returns.values)
+        var = w.T @ cov_matrix.values @ w
+        return -(ret - (risk_aversion/2)*var)
+    
+    constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1}]
+    bounds = ((-1, 1) if allow_short else (0, 1),) * n
+    x0 = np.array([1/n] * n)
+    
+    # Use SLSQP method to match Project 1
+    sol = minimize(utility, x0, bounds=bounds, constraints=constraints, method='SLSQP')
+    
+    if not sol['success']:
+        raise RuntimeError(f"Portfolio optimization failed: {sol['message']}")
+    
+    w = sol['x']
+    port_ret = w.dot(mean_returns.values)
+    port_vol = np.sqrt(w.T @ cov_matrix.values @ w)
+    
+    stats = {
+        'return': port_ret,
+        'volatility': port_vol,
+        'sharpe_ratio': port_ret/port_vol if port_vol else 0,
+        'utility': -(sol['fun'])
+    }
+    
+    # Return as pd.Series to match Project 1
+    return pd.Series(w, index=mean_returns.index), stats
+
+def calculate_risk_profile_portfolios(returns_df, cov_matrix, risk_free_rate=0.03):
+    """
+    Calculate optimal portfolios for different risk profiles.
+    This function follows Project 1's approach.
+    """
+    # Annualized mean returns
+    mean_returns = returns_df.mean() * 252
+    
+    # Risk aversion levels from Project 1
+    risk_profiles = {
+        "Aggressive": 1.5,
+        "Growth-Oriented": 2.5,
+        "Moderate": 3.5,
+        "Conservative": 6.0,
+        "Very Conservative": 12.0
+    }
+    
+    results = {}
+    
+    for profile, risk_aversion in risk_profiles.items():
+        try:
+            # Calculate optimal portfolio weights and stats
+            weights, stats = calculate_optimal_portfolio(mean_returns, cov_matrix, risk_aversion, allow_short=False)
+            
+            # Keep only significant weights (>1%) as in Project 1
+            significant_weights = weights[weights > 0.01]
+            # Normalize the significant weights to sum to 1
+            significant_weights = (significant_weights / significant_weights.sum()).round(4)
+            
+            results[profile] = {
+                'full_allocation': weights.to_dict(),
+                'recommended_allocation': significant_weights.to_dict(),
+                'risk_aversion': risk_aversion,
+                'portfolio_stats': stats
+            }
+        except Exception as e:
+            print(f"Error calculating portfolio for {profile}: {str(e)}")
+            results[profile] = {
+                'error': str(e)
+            }
+    
+    return results
+
+def prepare_output_data(fund_metrics, cov_matrix, ef_results, risk_profile_portfolios, fund_descriptions, fund_asset_classes, funds_with_tickers):
     """Prepare data for JSON export"""
     # Convert covariance matrix to list of lists
     cov_matrix_list = cov_matrix.values.tolist()
     
-    # Define expense ratios (normally these would come from another source)
-    # Here we're just setting some reasonable defaults
-    expense_ratios = {fund: 0.0035 for fund in fund_metrics.keys()}
+    # Calculate correlation matrix
+    std_devs = np.sqrt(np.diag(cov_matrix.values))
+    corr_matrix = np.zeros_like(cov_matrix.values)
+    for i in range(len(std_devs)):
+        for j in range(len(std_devs)):
+            if std_devs[i] > 0 and std_devs[j] > 0:
+                corr_matrix[i, j] = cov_matrix.values[i, j] / (std_devs[i] * std_devs[j])
+            else:
+                corr_matrix[i, j] = 0
+    
     
     # Prepare the fund data structure
     fund_data = {}
@@ -344,6 +472,7 @@ def prepare_output_data(fund_metrics, cov_matrix, ef_results, fund_descriptions,
             'annualizedReturn': metrics['annualizedReturn'],
             'annualizedVolatility': metrics['annualizedVolatility'],
             'sharpeRatio': metrics['sharpeRatio'],
+            'sortinoRatio': metrics['sortinoRatio'],
             'maxDrawdown': metrics['maxDrawdown'],
             'description': fund_descriptions.get(fund, "No description available."),
             'assetClass': fund_asset_classes.get(fund, "Equity"),
@@ -353,10 +482,12 @@ def prepare_output_data(fund_metrics, cov_matrix, ef_results, fund_descriptions,
     output_data = {
         'fundData': fund_data,
         'covarianceMatrix': cov_matrix_list,
+        'correlationMatrix': corr_matrix.tolist(),
         'fundsWithTickers': funds_with_tickers,
         'fundDescriptions': fund_descriptions,
         'fundAssetClasses': fund_asset_classes,
-        'efficientFrontier': ef_results
+        'efficientFrontier': ef_results,
+        'riskProfiles': risk_profile_portfolios
     }
     
     return output_data

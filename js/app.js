@@ -163,7 +163,8 @@ function navigateTo(sectionId) {
     case "section-portfolio":
       updateProgress(80);
       if (appState.riskAversion) {
-        calculateOptimalPortfolio();
+        //calculateOptimalPortfolio();
+        calculateEnhancedOptimalPortfolio();
       }
       break;
     case "section-methodology":
@@ -293,12 +294,12 @@ function calculateOptimalPortfolio() {
   // Extract annualized returns
   const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
 
-  // Calculate optimal portfolio
-  const optimalWeights = optimizePortfolio(
+  const { weights } = enhancedOptimization.optimizePortfolio(
     meanReturns,
     covarianceMatrix,
     appState.riskAversion
   );
+  const optimalWeights = weights;
 
   // Calculate portfolio statistics
   const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
@@ -343,6 +344,329 @@ function calculateOptimalPortfolio() {
 
   // Update UI
   updatePortfolioUI();
+}
+
+/**
+ * Enhanced Portfolio Optimization Functions
+ * Incorporates time horizon and goal type considerations
+ */
+
+// Adjust risk aversion based on time horizon
+function adjustRiskAversionForTimeHorizon(baseRiskAversion, timeHorizonLabel) {
+  // Convert time horizon label to numeric years
+  let timeHorizonYears;
+  switch (timeHorizonLabel) {
+    case "< 3 years":
+      timeHorizonYears = 2;
+      break;
+    case "3-5 years":
+      timeHorizonYears = 4;
+      break;
+    case "6-10 years":
+      timeHorizonYears = 8;
+      break;
+    case "11-20 years":
+      timeHorizonYears = 15;
+      break;
+    case "> 20 years":
+      timeHorizonYears = 25;
+      break;
+    default:
+      timeHorizonYears = 10;
+  }
+
+  // Adjust risk aversion based on time horizon
+  if (timeHorizonYears < 5) {
+    // Shorter time horizons should be more conservative (higher risk aversion)
+    return baseRiskAversion * (1 + (5 - timeHorizonYears) * 0.1);
+  } else if (timeHorizonYears > 15) {
+    // Longer time horizons can be more aggressive (lower risk aversion)
+    return (
+      baseRiskAversion * Math.max(0.85, 1 - (timeHorizonYears - 15) * 0.01)
+    );
+  }
+
+  // No adjustment for medium time horizons
+  return baseRiskAversion;
+}
+
+// Adjust risk aversion based on goal type
+function adjustRiskAversionForGoalType(riskAversion, goalType) {
+  switch (goalType) {
+    case "retirement":
+      // Retirement typically has longer time horizons, can be slightly more aggressive
+      return riskAversion * 0.95;
+
+    case "education":
+      // Education has a fixed deadline, should be more conservative
+      return riskAversion * 1.1;
+
+    case "home_purchase":
+      // Home purchase typically needs more stability and liquidity
+      return riskAversion * 1.2;
+
+    case "emergency_fund":
+      // Emergency funds need high stability and liquidity
+      return riskAversion * 1.5;
+
+    default:
+      return riskAversion;
+  }
+}
+
+// Enhanced portfolio optimization with time horizon and goal considerations
+function calculateEnhancedOptimalPortfolio() {
+  const fundNames = Object.keys(fundData);
+  const numAssets = fundNames.length;
+
+  // Extract annualized returns
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+
+  // Start with base risk aversion from risk profile
+  let riskAversion = appState.riskAversion;
+  console.log(`Base risk aversion: ${riskAversion}`);
+
+  // Adjust for time horizon
+  const timeHorizonAdjustedRiskAversion = adjustRiskAversionForTimeHorizon(
+    riskAversion,
+    appState.timeHorizon
+  );
+  console.log(
+    `After time horizon adjustment: ${timeHorizonAdjustedRiskAversion}`
+  );
+
+  // Adjust for goal type
+  const finalRiskAversion = adjustRiskAversionForGoalType(
+    timeHorizonAdjustedRiskAversion,
+    appState.investmentGoals.type
+  );
+  console.log(`After goal type adjustment: ${finalRiskAversion}`);
+
+  // Calculate optimal portfolio using adjusted risk aversion
+  const optimalWeights = optimizePortfolio(
+    meanReturns,
+    covarianceMatrix,
+    finalRiskAversion
+  );
+
+  // Calculate portfolio statistics
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    optimalWeights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility; // Assuming 3% risk-free rate
+
+  // Filter for significant allocations (> 1%)
+  const significantAllocations = {};
+  let totalSignificant = 0;
+
+  for (let i = 0; i < numAssets; i++) {
+    if (optimalWeights[i] > 0.01) {
+      significantAllocations[fundNames[i]] = optimalWeights[i];
+      totalSignificant += optimalWeights[i];
+    }
+  }
+
+  // Normalize significant allocations
+  for (const fund in significantAllocations) {
+    significantAllocations[fund] =
+      significantAllocations[fund] / totalSignificant;
+  }
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: optimalWeights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: Object.entries(significantAllocations).map(
+      ([fund, weight]) => ({ fund, weight })
+    ),
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+    adjustments: {
+      baseRiskAversion: appState.riskAversion,
+      timeHorizonAdjustedRiskAversion: timeHorizonAdjustedRiskAversion,
+      finalRiskAversion: finalRiskAversion,
+      timeHorizon: appState.timeHorizon,
+      goalType: appState.investmentGoals.type,
+    },
+  };
+
+  // Update UI
+  updatePortfolioUI();
+  updatePortfolioExplanation();
+}
+
+// Add a liquidity buffer for near-term goals
+function addLiquidityBuffer(allocation, timeHorizonLabel, goalType) {
+  // Only apply for short time horizons
+  if (timeHorizonLabel === "< 3 years" || timeHorizonLabel === "3-5 years") {
+    const adjustedAllocation = { ...allocation };
+    const fundNames = Object.keys(allocation);
+
+    // Identify liquid and non-liquid assets
+    const liquidAssets = fundNames.filter(
+      (fund) =>
+        fundData[fund].assetClass.includes("Fixed Income") ||
+        fundData[fund].assetClass.includes("Cash")
+    );
+
+    const nonLiquidAssets = fundNames.filter(
+      (fund) => !liquidAssets.includes(fund)
+    );
+
+    // Calculate current liquid allocation
+    let currentLiquidAllocation = 0;
+    liquidAssets.forEach((fund) => {
+      currentLiquidAllocation += allocation[fund] || 0;
+    });
+
+    // Determine target liquid allocation based on goal type and time horizon
+    let targetLiquidAllocation = 0.3; // Default 30%
+
+    if (goalType === "home_purchase") {
+      targetLiquidAllocation = 0.5; // 50% for home purchase
+    } else if (goalType === "education" && timeHorizonLabel === "< 3 years") {
+      targetLiquidAllocation = 0.6; // 60% for imminent education needs
+    } else if (goalType === "emergency_fund") {
+      targetLiquidAllocation = 0.8; // 80% for emergency funds
+    }
+
+    // If we need to increase liquid allocation
+    if (currentLiquidAllocation < targetLiquidAllocation) {
+      const shortfall = targetLiquidAllocation - currentLiquidAllocation;
+
+      // Reduce non-liquid assets proportionally
+      let totalNonLiquid = 0;
+      nonLiquidAssets.forEach((fund) => {
+        totalNonLiquid += allocation[fund] || 0;
+      });
+
+      // Redistribute from non-liquid to liquid assets
+      nonLiquidAssets.forEach((fund) => {
+        if (allocation[fund]) {
+          const reductionFactor = shortfall / totalNonLiquid;
+          adjustedAllocation[fund] = allocation[fund] * (1 - reductionFactor);
+        }
+      });
+
+      // Add to liquid assets proportionally
+      if (liquidAssets.length > 0) {
+        const addPerLiquid = shortfall / liquidAssets.length;
+        liquidAssets.forEach((fund) => {
+          adjustedAllocation[fund] = (allocation[fund] || 0) + addPerLiquid;
+        });
+      }
+    }
+
+    return adjustedAllocation;
+  }
+
+  // No adjustment needed for longer time horizons
+  return allocation;
+}
+
+// Update portfolio explanation with time horizon and goal type considerations
+function updatePortfolioExplanation() {
+  const explanationEl = document.getElementById("investment-recommendation");
+  if (!explanationEl) return;
+
+  // Get the portfolio adjustments
+  const adjustments = appState.optimalPortfolio.adjustments;
+
+  // Determine if any adjustments were made
+  const timeHorizonAdjusted =
+    adjustments.timeHorizonAdjustedRiskAversion !==
+    adjustments.baseRiskAversion;
+  const goalTypeAdjusted =
+    adjustments.finalRiskAversion !==
+    adjustments.timeHorizonAdjustedRiskAversion;
+
+  // Create explanation text
+  let explanationHTML = `
+    <p class="mb-3">Based on your <strong>${appState.riskProfile}</strong> risk profile and investment goals, we recommend the following optimized portfolio allocation:</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+  `;
+
+  // Add allocation cards
+  appState.optimalPortfolio.recommendedAllocation.forEach((item) => {
+    explanationHTML += `
+      <div class="bg-white p-2 rounded border border-gray-200">
+        <div class="font-semibold">${item.fund}</div>
+        <div class="text-blue-600 font-bold">${(item.weight * 100).toFixed(
+          2
+        )}%</div>
+      </div>
+    `;
+  });
+
+  explanationHTML += `</div>`;
+
+  // Add explanation of adjustments
+  explanationHTML += `
+    <p class="mb-3">This portfolio is optimized to provide the best expected return for your risk tolerance, with an expected annual return of ${(
+      appState.optimalPortfolio.stats.return * 100
+    ).toFixed(2)}% and volatility of ${(
+    appState.optimalPortfolio.stats.volatility * 100
+  ).toFixed(2)}%.</p>
+  `;
+
+  if (timeHorizonAdjusted || goalTypeAdjusted) {
+    explanationHTML += `<div class="bg-blue-50 p-3 rounded-lg border border-blue-200 mb-3">
+      <h4 class="font-semibold mb-2">Portfolio Customizations:</h4>
+      <ul class="list-disc pl-5">
+    `;
+
+    if (timeHorizonAdjusted) {
+      const direction =
+        adjustments.timeHorizonAdjustedRiskAversion >
+        adjustments.baseRiskAversion
+          ? "more conservative"
+          : "more aggressive";
+      explanationHTML += `
+        <li>Your time horizon of <strong>${adjustments.timeHorizon}</strong> has made your portfolio ${direction}.</li>
+      `;
+    }
+
+    if (goalTypeAdjusted) {
+      const direction =
+        adjustments.finalRiskAversion >
+        adjustments.timeHorizonAdjustedRiskAversion
+          ? "more conservative"
+          : "more aggressive";
+      explanationHTML += `
+        <li>Your goal type of <strong>${adjustments.goalType}</strong> has made your portfolio ${direction}.</li>
+      `;
+    }
+
+    explanationHTML += `</ul></div>`;
+  }
+
+  // Add rebalancing recommendation
+  explanationHTML += `
+    <p>For best results, we recommend rebalancing this portfolio quarterly to maintain the target allocation. As your financial situation or goals change, you should reassess your risk profile and adjust your portfolio accordingly.</p>
+  `;
+
+  // If near-term goal, add liquidity recommendation
+  if (
+    adjustments.timeHorizon === "< 3 years" ||
+    adjustments.timeHorizon === "3-5 years"
+  ) {
+    explanationHTML += `
+      <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200 mt-3">
+        <h4 class="font-semibold mb-2">Short-Term Goal Considerations:</h4>
+        <p>Since your time horizon is relatively short (${adjustments.timeHorizon}), we've increased allocation to more liquid and stable assets. This helps protect your capital as you approach your goal date.</p>
+      </div>
+    `;
+  }
+
+  // Update the element
+  explanationEl.innerHTML = explanationHTML;
 }
 
 // Update portfolio UI

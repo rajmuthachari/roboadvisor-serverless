@@ -17,7 +17,26 @@ document.addEventListener("DOMContentLoaded", async function () {
   await loadPortfolioData();
 });
 
-// Function to load the portfolio data from JSON
+// Add this function to data.js
+async function updatePortfolioData() {
+  try {
+    const response = await fetch("/api/update-portfolio-data");
+    const result = await response.json();
+
+    if (result.success) {
+      console.log("Portfolio data updated successfully");
+      return true;
+    } else {
+      console.error("Failed to update portfolio data:", result.error);
+      return false;
+    }
+  } catch (error) {
+    console.error("Error calling update API:", error);
+    return false;
+  }
+}
+
+// Modify your loadPortfolioData function to include refresh button functionality
 async function loadPortfolioData() {
   try {
     // Fetch the JSON file
