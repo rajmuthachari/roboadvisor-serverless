@@ -286,7 +286,7 @@ function sortFunds(metric, descending = true) {
 }
 
 // Calculate optimal portfolio based on risk aversion
-function calculateOptimalPortfolio() {
+/*function calculateOptimalPortfolio() {
   const fundNames = Object.keys(fundData);
   const numAssets = fundNames.length;
 
@@ -343,6 +343,991 @@ function calculateOptimalPortfolio() {
 
   // Update UI
   updatePortfolioUI();
+}
+*/
+function calculateOptimalPortfolio() {
+  const fundNames = Object.keys(fundData);
+  const numAssets = fundNames.length;
+
+  // Extract annualized returns
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+
+  // Check for sufficient fixed income options for conservative portfolios
+  const fixedIncomeCount = fundNames.filter((fund) =>
+    fundData[fund].assetClass.includes("Fixed Income")
+  ).length;
+
+  if (
+    (appState.riskProfile === "Very Conservative" ||
+      appState.riskProfile === "Conservative") &&
+    fixedIncomeCount < 2
+  ) {
+    console.log(
+      "Not enough fixed income options for conservative portfolio. Using special allocation."
+    );
+    applySpecialConservativeAllocation();
+    return;
+  }
+
+  // Continue with original optimization if enough fixed income options are available
+  // Add risk profile based constraints
+  let customConstraints = [];
+
+  // Helper function to find indices of funds by asset class
+  function findIndicesOfFundsByAssetClass(assetClassSubstring) {
+    return fundNames.reduce((indices, fundName, index) => {
+      if (fundData[fundName].assetClass.includes(assetClassSubstring)) {
+        indices.push(index);
+      }
+      return indices;
+    }, []);
+  }
+
+  // Get indices for different asset classes
+  const equityFundIndices = findIndicesOfFundsByAssetClass("Equity");
+  const fixedIncomeFundIndices = findIndicesOfFundsByAssetClass("Fixed Income");
+  const alternativeFundIndices = findIndicesOfFundsByAssetClass("Alternative");
+
+  // Add constraints based on risk profile
+  if (appState.riskProfile === "Very Conservative") {
+    // For very conservative, use heavy fixed income allocation
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return 0.2 - equityExposure; // Equity ≤ 20%
+      },
+    });
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return fixedIncomeExposure - 0.7; // Fixed Income ≥ 70%
+      },
+    });
+  } else if (appState.riskProfile === "Conservative") {
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return 0.4 - equityExposure; // Equity ≤ 40%
+      },
+    });
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const fixedIncomeExposure = fixedIncomeFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return fixedIncomeExposure - 0.5; // Fixed Income ≥ 50%
+      },
+    });
+  } else if (appState.riskProfile === "Moderate") {
+    // Ensure balanced allocation for moderate profiles
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return equityExposure - 0.3; // Equity ≥ 30%
+      },
+    });
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return 0.7 - equityExposure; // Equity ≤ 70%
+      },
+    });
+  } else if (appState.riskProfile === "Growth-Oriented") {
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return equityExposure - 0.6; // Equity ≥ 60%
+      },
+    });
+  } else if (appState.riskProfile === "Aggressive") {
+    customConstraints.push({
+      type: "ineq",
+      fun: function (weights) {
+        const equityExposure = equityFundIndices.reduce(
+          (sum, idx) => sum + weights[idx],
+          0
+        );
+        return equityExposure - 0.7; // Equity ≥ 70%
+      },
+    });
+  }
+
+  // Calculate optimal portfolio with constraints
+  const optimalWeights = optimizePortfolio(
+    meanReturns,
+    covarianceMatrix,
+    appState.riskAversion,
+    customConstraints
+  );
+
+  // Calculate portfolio statistics
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    optimalWeights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility; // Assuming 3% risk-free rate
+
+  // Filter for significant allocations (> 1%)
+  const significantAllocations = {};
+  let totalSignificant = 0;
+
+  for (let i = 0; i < numAssets; i++) {
+    if (optimalWeights[i] > 0.01) {
+      significantAllocations[fundNames[i]] = optimalWeights[i];
+      totalSignificant += optimalWeights[i];
+    }
+  }
+
+  // Normalize significant allocations
+  for (const fund in significantAllocations) {
+    significantAllocations[fund] =
+      significantAllocations[fund] / totalSignificant;
+  }
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: optimalWeights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: Object.entries(significantAllocations).map(
+      ([fund, weight]) => ({ fund, weight })
+    ),
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+  };
+
+  // Validate the portfolio
+  validateOptimalPortfolio();
+
+  // Update UI
+  updatePortfolioUI();
+}
+
+// Add this validation function to app.js
+function validateOptimalPortfolio() {
+  // Check if portfolio makes sense for the risk profile
+  const equityExposure = appState.optimalPortfolio.recommendedAllocation.reduce(
+    (sum, item) => {
+      return (
+        sum +
+        (fundData[item.fund].assetClass.includes("Equity") ? item.weight : 0)
+      );
+    },
+    0
+  );
+
+  const fixedIncomeExposure =
+    appState.optimalPortfolio.recommendedAllocation.reduce((sum, item) => {
+      return (
+        sum +
+        (fundData[item.fund].assetClass.includes("Fixed Income")
+          ? item.weight
+          : 0)
+      );
+    }, 0);
+
+  console.log(
+    `Portfolio validation - Risk profile: ${appState.riskProfile}, Equity: ${(
+      equityExposure * 100
+    ).toFixed(2)}%, Fixed Income: ${(fixedIncomeExposure * 100).toFixed(2)}%`
+  );
+
+  let isValid = true;
+  let warning = "";
+
+  // Check if allocation aligns with risk profile
+  if (appState.riskProfile === "Very Conservative" && equityExposure > 0.25) {
+    isValid = false;
+    warning = "Very Conservative portfolio has too much equity exposure";
+  } else if (appState.riskProfile === "Conservative" && equityExposure > 0.45) {
+    isValid = false;
+    warning = "Conservative portfolio has too much equity exposure";
+  } else if (appState.riskProfile === "Aggressive" && equityExposure < 0.6) {
+    isValid = false;
+    warning = "Aggressive portfolio has insufficient equity exposure";
+  }
+
+  if (!isValid) {
+    console.warn(warning);
+    // Apply fallback allocations
+    applySpecialConservativeAllocation();
+  }
+
+  return isValid;
+}
+
+// Add this special allocation function to app.js
+function applySpecialConservativeAllocation() {
+  const fundNames = Object.keys(fundData);
+
+  // Find the fixed income fund(s)
+  const fixedIncomeFunds = fundNames.filter((fund) =>
+    fundData[fund].assetClass.includes("Fixed Income")
+  );
+
+  // Find alternative investments
+  const alternativeFunds = fundNames.filter((fund) =>
+    fundData[fund].assetClass.includes("Alternative")
+  );
+
+  // Find the lowest volatility equity funds
+  const equityFunds = fundNames
+    .filter((fund) => fundData[fund].assetClass.includes("Equity"))
+    .sort(
+      (a, b) =>
+        fundData[a].annualizedVolatility - fundData[b].annualizedVolatility
+    );
+
+  // Sort all funds by volatility
+  const allFundsByVolatility = [...fundNames].sort(
+    (a, b) =>
+      fundData[a].annualizedVolatility - fundData[b].annualizedVolatility
+  );
+
+  // Sort all funds by Sharpe ratio
+  const allFundsBySharpe = [...fundNames].sort(
+    (a, b) => fundData[b].sharpeRatio - fundData[a].sharpeRatio
+  );
+
+  let allocation = [];
+
+  if (appState.riskProfile === "Very Conservative") {
+    // Use as much fixed income as available
+    if (fixedIncomeFunds.length > 0) {
+      allocation.push({
+        fund: fixedIncomeFunds[0],
+        weight: 0.7, // 70% to fixed income
+      });
+
+      // Add some alternative if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1, // 10% to alternatives
+        });
+
+        // Remaining 20% to lowest volatility equity funds
+        allocation.push({
+          fund: equityFunds[0],
+          weight: 0.1,
+        });
+        if (equityFunds.length > 1) {
+          allocation.push({
+            fund: equityFunds[1],
+            weight: 0.1,
+          });
+        } else {
+          // Increase weight of first equity fund if only one available
+          allocation[allocation.length - 1].weight += 0.1;
+        }
+      } else {
+        // No alternatives, split 30% among lowest volatility equity
+        if (equityFunds.length >= 3) {
+          allocation.push({
+            fund: equityFunds[0],
+            weight: 0.1,
+          });
+          allocation.push({
+            fund: equityFunds[1],
+            weight: 0.1,
+          });
+          allocation.push({
+            fund: equityFunds[2],
+            weight: 0.1,
+          });
+        } else if (equityFunds.length == 2) {
+          allocation.push({
+            fund: equityFunds[0],
+            weight: 0.15,
+          });
+          allocation.push({
+            fund: equityFunds[1],
+            weight: 0.15,
+          });
+        } else if (equityFunds.length == 1) {
+          allocation.push({
+            fund: equityFunds[0],
+            weight: 0.3,
+          });
+        }
+      }
+    } else {
+      // No fixed income available at all - use lowest volatility options
+      // at least 80% in the 3 lowest volatility assets
+      allocation.push({
+        fund: allFundsByVolatility[0],
+        weight: 0.5,
+      });
+
+      allocation.push({
+        fund: allFundsByVolatility[1],
+        weight: 0.3,
+      });
+
+      // Remaining 20% split between alternatives and another equity
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1,
+        });
+
+        if (allFundsByVolatility.length > 2) {
+          allocation.push({
+            fund: allFundsByVolatility[2],
+            weight: 0.1,
+          });
+        } else {
+          // Add more to existing funds
+          allocation[0].weight += 0.05;
+          allocation[1].weight += 0.05;
+        }
+      } else {
+        // No alternatives either
+        if (allFundsByVolatility.length > 2) {
+          allocation.push({
+            fund: allFundsByVolatility[2],
+            weight: 0.2,
+          });
+        } else {
+          // Add more to existing funds
+          allocation[0].weight += 0.1;
+          allocation[1].weight += 0.1;
+        }
+      }
+    }
+  } else if (appState.riskProfile === "Conservative") {
+    // Conservative profile logic
+    // Use fixed income if available
+    if (fixedIncomeFunds.length > 0) {
+      allocation.push({
+        fund: fixedIncomeFunds[0],
+        weight: 0.5, // 50% to fixed income
+      });
+
+      // Add some alternative if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1, // 10% to alternatives
+        });
+
+        // Remaining 40% to equity funds, favoring lower volatility
+        if (equityFunds.length >= 4) {
+          allocation.push({
+            fund: equityFunds[0],
+            weight: 0.1,
+          });
+          allocation.push({
+            fund: equityFunds[1],
+            weight: 0.1,
+          });
+          allocation.push({
+            fund: equityFunds[2],
+            weight: 0.1,
+          });
+          allocation.push({
+            fund: equityFunds[3],
+            weight: 0.1,
+          });
+        } else if (equityFunds.length == 3) {
+          allocation.push({
+            fund: equityFunds[0],
+            weight: 0.14,
+          });
+          allocation.push({
+            fund: equityFunds[1],
+            weight: 0.13,
+          });
+          allocation.push({
+            fund: equityFunds[2],
+            weight: 0.13,
+          });
+        } else if (equityFunds.length == 2) {
+          allocation.push({
+            fund: equityFunds[0],
+            weight: 0.2,
+          });
+          allocation.push({
+            fund: equityFunds[1],
+            weight: 0.2,
+          });
+        } else if (equityFunds.length == 1) {
+          allocation.push({
+            fund: equityFunds[0],
+            weight: 0.4,
+          });
+        }
+      } else {
+        // No alternatives, split 50% among equity
+        if (equityFunds.length >= 5) {
+          for (let i = 0; i < 5; i++) {
+            allocation.push({
+              fund: equityFunds[i],
+              weight: 0.1,
+            });
+          }
+        } else if (equityFunds.length > 0) {
+          const equityWeight = 0.5 / equityFunds.length;
+          for (let i = 0; i < equityFunds.length; i++) {
+            allocation.push({
+              fund: equityFunds[i],
+              weight: equityWeight,
+            });
+          }
+        }
+      }
+    } else {
+      // No fixed income - use lowest volatility options and more diversification
+      if (allFundsByVolatility.length >= 3) {
+        allocation.push({
+          fund: allFundsByVolatility[0],
+          weight: 0.4,
+        });
+
+        allocation.push({
+          fund: allFundsByVolatility[1],
+          weight: 0.3,
+        });
+
+        allocation.push({
+          fund: allFundsByVolatility[2],
+          weight: 0.1,
+        });
+      }
+
+      // Add some alternatives if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1,
+        });
+      }
+
+      // Add higher Sharpe ratio funds for remaining allocation
+      if (allFundsBySharpe.length > 0) {
+        // Find a high Sharpe fund not already in the allocation
+        const existingFunds = allocation.map((item) => item.fund);
+        const remainingFunds = allFundsBySharpe.filter(
+          (fund) => !existingFunds.includes(fund)
+        );
+
+        if (remainingFunds.length > 0) {
+          allocation.push({
+            fund: remainingFunds[0],
+            weight: 0.1,
+          });
+        } else {
+          // If all funds already used, add more to top two funds
+          allocation[0].weight += 0.05;
+          allocation[1].weight += 0.05;
+        }
+      } else {
+        // If no more funds available, add to existing allocations
+        allocation[0].weight += 0.1;
+      }
+    }
+  } else if (appState.riskProfile === "Moderate") {
+    // Moderate profile - more balanced approach
+    // Start with some fixed income if available
+    if (fixedIncomeFunds.length > 0) {
+      allocation.push({
+        fund: fixedIncomeFunds[0],
+        weight: 0.3, // 30% to fixed income
+      });
+
+      let remainingWeight = 0.7;
+
+      // Add some alternative if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1, // 10% to alternatives
+        });
+        remainingWeight -= 0.1;
+      }
+
+      // Distribute remaining to equity, mixing low volatility and high Sharpe
+      // Get top equities by Sharpe
+      const topEquityBySharpe = equityFunds
+        .sort((a, b) => fundData[b].sharpeRatio - fundData[a].sharpeRatio)
+        .slice(0, 4);
+
+      if (topEquityBySharpe.length >= 4) {
+        const equityWeight = remainingWeight / 4;
+        for (let i = 0; i < 4; i++) {
+          allocation.push({
+            fund: topEquityBySharpe[i],
+            weight: equityWeight,
+          });
+        }
+      } else {
+        const equityWeight = remainingWeight / topEquityBySharpe.length;
+        for (let i = 0; i < topEquityBySharpe.length; i++) {
+          allocation.push({
+            fund: topEquityBySharpe[i],
+            weight: equityWeight,
+          });
+        }
+      }
+    } else {
+      // No fixed income - create balanced allocation using volatility and return
+      // 40% to low volatility funds
+      if (allFundsByVolatility.length >= 2) {
+        allocation.push({
+          fund: allFundsByVolatility[0],
+          weight: 0.25,
+        });
+
+        allocation.push({
+          fund: allFundsByVolatility[1],
+          weight: 0.15,
+        });
+      }
+
+      // 10% to alternatives if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1,
+        });
+      }
+
+      // Remaining 50% to high Sharpe ratio funds
+      let remainingWeight = alternativeFunds.length > 0 ? 0.5 : 0.6;
+
+      if (allFundsBySharpe.length >= 3) {
+        // Make sure we don't duplicate funds
+        const existingFunds = allocation.map((item) => item.fund);
+        const remainingFunds = allFundsBySharpe
+          .filter((fund) => !existingFunds.includes(fund))
+          .slice(0, 3);
+
+        if (remainingFunds.length > 0) {
+          const sharpeWeight = remainingWeight / remainingFunds.length;
+          for (let i = 0; i < remainingFunds.length; i++) {
+            allocation.push({
+              fund: remainingFunds[i],
+              weight: sharpeWeight,
+            });
+          }
+        } else {
+          // If all funds already used, distribute among existing
+          const additionalWeight = remainingWeight / allocation.length;
+          for (let i = 0; i < allocation.length; i++) {
+            allocation[i].weight += additionalWeight;
+          }
+        }
+      } else {
+        // If not enough funds, add to existing allocations
+        const additionalWeight = remainingWeight / allocation.length;
+        for (let i = 0; i < allocation.length; i++) {
+          allocation[i].weight += additionalWeight;
+        }
+      }
+    }
+  } else if (appState.riskProfile === "Growth-Oriented") {
+    // Growth-Oriented profile - equity focused with some stability
+    // Start with some fixed income if available (20%)
+    if (fixedIncomeFunds.length > 0) {
+      allocation.push({
+        fund: fixedIncomeFunds[0],
+        weight: 0.2, // 20% to fixed income
+      });
+
+      let remainingWeight = 0.8;
+
+      // Add some alternative if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1, // 10% to alternatives
+        });
+        remainingWeight -= 0.1;
+      }
+
+      // Distribute remaining to equity, focusing on growth
+      // Get top equities by return
+      const topEquityByReturn = equityFunds
+        .sort(
+          (a, b) => fundData[b].annualizedReturn - fundData[a].annualizedReturn
+        )
+        .slice(0, 5);
+
+      if (topEquityByReturn.length >= 5) {
+        const equityWeight = remainingWeight / 5;
+        for (let i = 0; i < 5; i++) {
+          allocation.push({
+            fund: topEquityByReturn[i],
+            weight: equityWeight,
+          });
+        }
+      } else {
+        const equityWeight = remainingWeight / topEquityByReturn.length;
+        for (let i = 0; i < topEquityByReturn.length; i++) {
+          allocation.push({
+            fund: topEquityByReturn[i],
+            weight: equityWeight,
+          });
+        }
+      }
+    } else {
+      // No fixed income - allocate primarily to growth-oriented equity
+      // 70% to high return funds
+      const topReturnFunds = allFundsByVolatility
+        .sort(
+          (a, b) => fundData[b].annualizedReturn - fundData[a].annualizedReturn
+        )
+        .slice(0, 4);
+
+      if (topReturnFunds.length >= 4) {
+        let returnWeight = 0.7 / 4;
+        for (let i = 0; i < 4; i++) {
+          allocation.push({
+            fund: topReturnFunds[i],
+            weight: returnWeight,
+          });
+        }
+      } else {
+        let returnWeight = 0.7 / topReturnFunds.length;
+        for (let i = 0; i < topReturnFunds.length; i++) {
+          allocation.push({
+            fund: topReturnFunds[i],
+            weight: returnWeight,
+          });
+        }
+      }
+
+      // 10% to alternatives if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1,
+        });
+      }
+
+      // Remaining 20% to high Sharpe ratio funds
+      let remainingWeight = alternativeFunds.length > 0 ? 0.2 : 0.3;
+
+      // Find high Sharpe funds not already in the allocation
+      const existingFunds = allocation.map((item) => item.fund);
+      const remainingFundsBySharpe = allFundsBySharpe
+        .filter((fund) => !existingFunds.includes(fund))
+        .slice(0, 2);
+
+      if (remainingFundsBySharpe.length > 0) {
+        const sharpeWeight = remainingWeight / remainingFundsBySharpe.length;
+        for (let i = 0; i < remainingFundsBySharpe.length; i++) {
+          allocation.push({
+            fund: remainingFundsBySharpe[i],
+            weight: sharpeWeight,
+          });
+        }
+      } else {
+        // If all funds already used, distribute among existing
+        const additionalWeight = remainingWeight / allocation.length;
+        for (let i = 0; i < allocation.length; i++) {
+          allocation[i].weight += additionalWeight;
+        }
+      }
+    }
+  } else if (appState.riskProfile === "Aggressive") {
+    // Aggressive profile - maximum growth focus
+    // Small fixed income portion if available (10%)
+    if (fixedIncomeFunds.length > 0) {
+      allocation.push({
+        fund: fixedIncomeFunds[0],
+        weight: 0.1, // 10% to fixed income
+      });
+
+      let remainingWeight = 0.9;
+
+      // Small alternative allocation if available
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.05, // 5% to alternatives
+        });
+        remainingWeight -= 0.05;
+      }
+
+      // Distribute remaining to aggressive growth equity
+      // Get top equities by return, slightly more concentrated
+      const topEquityByReturn = equityFunds
+        .sort(
+          (a, b) => fundData[b].annualizedReturn - fundData[a].annualizedReturn
+        )
+        .slice(0, 4);
+
+      if (topEquityByReturn.length >= 4) {
+        // Concentrate more in top performers
+        allocation.push({
+          fund: topEquityByReturn[0],
+          weight: remainingWeight * 0.35,
+        });
+
+        allocation.push({
+          fund: topEquityByReturn[1],
+          weight: remainingWeight * 0.3,
+        });
+
+        allocation.push({
+          fund: topEquityByReturn[2],
+          weight: remainingWeight * 0.2,
+        });
+
+        allocation.push({
+          fund: topEquityByReturn[3],
+          weight: remainingWeight * 0.15,
+        });
+      } else {
+        // Distribute evenly if not enough funds
+        const equityWeight = remainingWeight / topEquityByReturn.length;
+        for (let i = 0; i < topEquityByReturn.length; i++) {
+          allocation.push({
+            fund: topEquityByReturn[i],
+            weight: equityWeight,
+          });
+        }
+      }
+    } else {
+      // No fixed income - focus entirely on aggressive growth
+      // 85% to high return funds
+      const topReturnFunds = [...fundNames]
+        .sort(
+          (a, b) => fundData[b].annualizedReturn - fundData[a].annualizedReturn
+        )
+        .slice(0, 4);
+
+      if (topReturnFunds.length >= 4) {
+        // Concentrate more in top performers
+        allocation.push({
+          fund: topReturnFunds[0],
+          weight: 0.3,
+        });
+
+        allocation.push({
+          fund: topReturnFunds[1],
+          weight: 0.25,
+        });
+
+        allocation.push({
+          fund: topReturnFunds[2],
+          weight: 0.2,
+        });
+
+        allocation.push({
+          fund: topReturnFunds[3],
+          weight: 0.15,
+        });
+      } else {
+        // Distribute proportionally if not enough funds
+        const weights = [0.5, 0.3, 0.2]; // Default weights for 1-3 funds
+        for (let i = 0; i < topReturnFunds.length; i++) {
+          allocation.push({
+            fund: topReturnFunds[i],
+            weight: weights[i] || weights[weights.length - 1],
+          });
+        }
+      }
+
+      // 10% to alternatives if available, otherwise add to top performer
+      if (alternativeFunds.length > 0) {
+        allocation.push({
+          fund: alternativeFunds[0],
+          weight: 0.1,
+        });
+      } else if (allocation.length > 0) {
+        allocation[0].weight += 0.1;
+      }
+    }
+  }
+
+  // Calculate portfolio statistics
+  const weights = Array(fundNames.length).fill(0);
+  allocation.forEach((item) => {
+    const index = fundNames.indexOf(item.fund);
+    weights[index] = item.weight;
+  });
+
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, weights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    weights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: weights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: allocation,
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+    isSpecialAllocation: true,
+  };
+
+  // Update UI
+  updatePortfolioUI();
+}
+
+// Add this fallback function to app.js
+function applyFallbackAllocation() {
+  const fundNames = Object.keys(fundData);
+
+  // Create template allocations by risk profile
+  const templates = {
+    "Very Conservative": {
+      Equity: 0.15,
+      "Fixed Income": 0.75,
+      "Real Estate": 0.1,
+    },
+    Conservative: {
+      Equity: 0.35,
+      "Fixed Income": 0.55,
+      "Real Estate": 0.1,
+    },
+    Moderate: {
+      Equity: 0.5,
+      "Fixed Income": 0.4,
+      "Real Estate": 0.1,
+    },
+    "Growth-Oriented": {
+      Equity: 0.7,
+      "Fixed Income": 0.2,
+      "Real Estate": 0.1,
+    },
+    Aggressive: {
+      Equity: 0.85,
+      "Fixed Income": 0.1,
+      "Real Estate": 0.05,
+    },
+  };
+
+  // Get template for current risk profile
+  const template = templates[appState.riskProfile];
+
+  // Group funds by asset class
+  const fundsByClass = {
+    Equity: [],
+    "Fixed Income": [],
+    "Real Estate": [],
+    Other: [],
+  };
+
+  // Sort funds into asset classes
+  fundNames.forEach((fundName) => {
+    const fund = fundData[fundName];
+    if (fund.assetClass.includes("Equity")) {
+      fundsByClass["Equity"].push(fundName);
+    } else if (fund.assetClass.includes("Fixed Income")) {
+      fundsByClass["Fixed Income"].push(fundName);
+    } else if (fund.assetClass.includes("Real Estate")) {
+      fundsByClass["Real Estate"].push(fundName);
+    } else {
+      fundsByClass["Other"].push(fundName);
+    }
+  });
+
+  // Sort each asset class by Sharpe ratio
+  Object.keys(fundsByClass).forEach((assetClass) => {
+    fundsByClass[assetClass].sort(
+      (a, b) => fundData[b].sharpeRatio - fundData[a].sharpeRatio
+    );
+  });
+
+  // Create allocation with top funds in each asset class
+  const recommendedAllocation = [];
+
+  Object.keys(template).forEach((assetClass) => {
+    if (fundsByClass[assetClass].length > 0) {
+      // Get top 2 funds in asset class (or fewer if not available)
+      const topFunds = fundsByClass[assetClass].slice(
+        0,
+        Math.min(2, fundsByClass[assetClass].length)
+      );
+
+      // Allocate the asset class weight among the top funds
+      const weightPerFund = template[assetClass] / topFunds.length;
+
+      topFunds.forEach((fund) => {
+        recommendedAllocation.push({
+          fund: fund,
+          weight: weightPerFund,
+        });
+      });
+    }
+  });
+
+  // Calculate portfolio statistics for this allocation
+  const weights = Array(fundNames.length).fill(0);
+  recommendedAllocation.forEach((item) => {
+    const index = fundNames.indexOf(item.fund);
+    weights[index] = item.weight;
+  });
+
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, weights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    weights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+
+  // Update application state with fallback portfolio
+  appState.optimalPortfolio = {
+    fullAllocation: weights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: recommendedAllocation,
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+    isFallback: true, // Flag to indicate this is a fallback allocation
+  };
+
+  console.log(
+    "Applied fallback allocation for " + appState.riskProfile + " risk profile"
+  );
 }
 
 // Update portfolio UI
@@ -513,123 +1498,216 @@ function saveGoals() {
 
 // Handle download report
 function handleDownloadReport() {
-  // Use jsPDF to create a PDF report
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  // First, capture the portfolio allocation chart as an image
+  html2canvas(document.getElementById("portfolio-allocation-chart")).then(
+    (canvas) => {
+      // Convert the chart to a data URL
+      const chartImageData = canvas.toDataURL("image/png");
 
-  // Add title
-  doc.setFontSize(20);
-  doc.text("Portfolio Optimization Report", 105, 15, { align: "center" });
+      // Use jsPDF to create a PDF report
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
 
-  // Add date
-  doc.setFontSize(10);
-  doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, {
-    align: "center",
-  });
+      // Add title
+      doc.setFontSize(20);
+      doc.setTextColor(0, 51, 102); // Set title color to match dashboard
+      doc.text("Portfolio Optimization Report", 105, 15, { align: "center" });
 
-  // Add risk profile section
-  doc.setFontSize(16);
-  doc.text("Risk Profile", 14, 35);
+      // Add date
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 22, {
+        align: "center",
+      });
 
-  doc.setFontSize(12);
-  doc.text(`Profile: ${appState.riskProfile}`, 14, 45);
-  doc.text(`Risk Aversion Parameter: ${appState.riskAversion}`, 14, 52);
-  doc.text(`Time Horizon: ${appState.timeHorizon}`, 14, 59);
-  doc.text(`Investment Knowledge: ${appState.knowledgeLevel}`, 14, 66);
+      // Add risk profile header
+      doc.setFontSize(16);
+      doc.setTextColor(0, 51, 102);
+      doc.text("Risk Profile", 14, 35);
 
-  // Add recommended allocation section
-  doc.setFontSize(16);
-  doc.text("Recommended Portfolio Allocation", 14, 80);
+      // Add risk profile section with matching styles
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text(`Profile: ${appState.riskProfile}`, 14, 45);
+      doc.text(`Risk Aversion Parameter: ${appState.riskAversion}`, 14, 52);
+      doc.text(`Time Horizon: ${appState.timeHorizon}`, 14, 59);
+      doc.text(`Investment Knowledge: ${appState.knowledgeLevel}`, 14, 66);
 
-  doc.setFontSize(12);
-  let y = 90;
+      // Add portfolio statistics with matching colors
+      doc.setFontSize(16);
+      doc.setTextColor(0, 51, 102);
+      doc.text("Portfolio Statistics", 14, 80);
 
-  appState.optimalPortfolio.recommendedAllocation.forEach((item) => {
-    doc.text(`${item.fund}: ${(item.weight * 100).toFixed(2)}%`, 14, y);
-    y += 7;
-  });
+      doc.setFontSize(12);
+      doc.setTextColor(0);
 
-  // Add portfolio statistics
-  doc.setFontSize(16);
-  doc.text("Portfolio Statistics", 14, y + 10);
+      // Expected annual return (green color)
+      doc.text(`Expected Annual Return:`, 14, 90);
+      doc.setTextColor(34, 139, 34); // Green color for returns
+      doc.text(
+        `${(appState.optimalPortfolio.stats.return * 100).toFixed(2)}%`,
+        80,
+        90
+      );
 
-  doc.setFontSize(12);
-  y += 20;
-  doc.text(
-    `Expected Annual Return: ${(
-      appState.optimalPortfolio.stats.return * 100
-    ).toFixed(2)}%`,
-    14,
-    y
-  );
-  y += 7;
-  doc.text(
-    `Expected Annual Volatility: ${(
-      appState.optimalPortfolio.stats.volatility * 100
-    ).toFixed(2)}%`,
-    14,
-    y
-  );
-  y += 7;
-  doc.text(
-    `Sharpe Ratio: ${appState.optimalPortfolio.stats.sharpeRatio.toFixed(2)}`,
-    14,
-    y
-  );
+      // Expected annual volatility (red color)
+      doc.setTextColor(0);
+      doc.text(`Expected Annual Volatility:`, 14, 97);
+      doc.setTextColor(220, 20, 60); // Red color for risk
+      doc.text(
+        `${(appState.optimalPortfolio.stats.volatility * 100).toFixed(2)}%`,
+        80,
+        97
+      );
 
-  // Add investment goals section
-  doc.setFontSize(16);
-  y += 17;
-  doc.text("Investment Goals", 14, y);
+      // Sharpe ratio (blue color)
+      doc.setTextColor(0);
+      doc.text(`Sharpe Ratio:`, 14, 104);
+      doc.setTextColor(30, 144, 255); // Blue color for Sharpe
+      doc.text(
+        `${appState.optimalPortfolio.stats.sharpeRatio.toFixed(2)}`,
+        80,
+        104
+      );
 
-  //doc.setFontSize(12);
-  //y += 10;
-  //doc.text(`Goal Type: ${appState.investmentGoals.type}`, 14, y);
-  y += 7;
-  doc.text(
-    `Target Amount: ${appState.investmentGoals.amount.toLocaleString()}`,
-    14,
-    y
-  );
-  y += 7;
-  doc.text(
-    `Time Horizon: ${appState.investmentGoals.timeHorizon} years`,
-    14,
-    y
-  );
-  y += 7;
-  doc.text(
-    `Initial Investment: ${appState.investmentGoals.initialInvestment.toLocaleString()}`,
-    14,
-    y
-  );
-  y += 7;
-  doc.text(
-    `Monthly Contribution: ${appState.investmentGoals.monthlyContribution.toLocaleString()}`,
-    14,
-    y
-  );
+      // Reset text color
+      doc.setTextColor(0);
 
-  // Add disclaimer
-  y += 20;
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(
-    "DISCLAIMER: This report is for educational purposes only. Past performance is not indicative of future results.",
-    14,
-    y
-  );
-  y += 5;
-  doc.text(
-    "All investments involve risk and may result in loss of principal. Consult with a qualified financial advisor before making investment decisions.",
-    14,
-    y
-  );
+      // Add portfolio allocation chart
+      doc.setFontSize(16);
+      doc.setTextColor(0, 51, 102);
+      doc.text("Portfolio Allocation", 14, 118);
 
-  // Save the PDF
-  doc.save(
-    `portfolio_report_${appState.riskProfile
-      .toLowerCase()
-      .replace(/\s+/g, "_")}.pdf`
+      // Add the chart image
+      doc.addImage(chartImageData, "PNG", 15, 125, 180, 90);
+
+      // Add recommended allocation section
+      doc.setFontSize(16);
+      doc.setTextColor(0, 51, 102);
+      doc.text("Recommended Portfolio Allocation", 14, 225);
+
+      // Create a table for the allocations
+      doc.setFontSize(11);
+      doc.setTextColor(0);
+
+      // Table headers
+      doc.setFont(undefined, "bold");
+      doc.text("Fund", 14, 235);
+      doc.text("Asset Class", 100, 235);
+      doc.text("Allocation", 170, 235);
+      doc.setFont(undefined, "normal");
+
+      // Draw header line
+      doc.setDrawColor(200);
+      doc.line(14, 237, 196, 237);
+
+      // Add fund allocations as a table
+      let y = 243;
+      appState.optimalPortfolio.recommendedAllocation.forEach((item) => {
+        const assetClass = fundData[item.fund].assetClass;
+
+        // Truncate long fund names to fit the page
+        let displayName = item.fund;
+        if (displayName.length > 40) {
+          displayName = displayName.substring(0, 37) + "...";
+        }
+
+        doc.text(displayName, 14, y);
+        doc.text(assetClass, 100, y);
+        doc.text(`${(item.weight * 100).toFixed(2)}%`, 170, y);
+
+        y += 7;
+
+        // If we're about to run off the page, start a new page
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+
+          // Add continuation headers
+          doc.setFont(undefined, "bold");
+          doc.text("Fund", 14, y);
+          doc.text("Asset Class", 100, y);
+          doc.text("Allocation", 170, y);
+          doc.setFont(undefined, "normal");
+
+          // Draw header line
+          doc.line(14, y + 2, 196, y + 2);
+
+          y += 8;
+        }
+      });
+
+      // Add total row
+      doc.setFont(undefined, "bold");
+      doc.line(14, y, 196, y);
+      y += 5;
+      doc.text("Total", 14, y);
+      doc.text("100.00%", 170, y);
+      doc.setFont(undefined, "normal");
+
+      // Add investment goals section if not on a new page already
+      if (y > 240) {
+        doc.addPage();
+        y = 20;
+      } else {
+        y += 15;
+      }
+
+      doc.setFontSize(16);
+      doc.setTextColor(0, 51, 102);
+      doc.text("Investment Goals", 14, y);
+      y += 10;
+
+      doc.setFontSize(12);
+      doc.setTextColor(0);
+      doc.text(`Goal Type: ${appState.investmentGoals.type}`, 14, y);
+      y += 7;
+      doc.text(
+        `Target Amount: $${appState.investmentGoals.amount.toLocaleString()}`,
+        14,
+        y
+      );
+      y += 7;
+      doc.text(
+        `Time Horizon: ${appState.investmentGoals.timeHorizon} years`,
+        14,
+        y
+      );
+      y += 7;
+      doc.text(
+        `Initial Investment: $${appState.investmentGoals.initialInvestment.toLocaleString()}`,
+        14,
+        y
+      );
+      y += 7;
+      doc.text(
+        `Monthly Contribution: $${appState.investmentGoals.monthlyContribution.toLocaleString()}`,
+        14,
+        y
+      );
+
+      // Add disclaimer
+      y += 20;
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(
+        "DISCLAIMER: This report is for educational purposes only. Past performance is not indicative of future results.",
+        14,
+        y
+      );
+      y += 5;
+      doc.text(
+        "All investments involve risk and may result in loss of principal. Consult with a qualified financial advisor before making investment decisions.",
+        14,
+        y
+      );
+
+      // Save the PDF
+      doc.save(
+        `portfolio_report_${appState.riskProfile
+          .toLowerCase()
+          .replace(/\s+/g, "_")}.pdf`
+      );
+    }
   );
 }

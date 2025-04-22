@@ -47,16 +47,15 @@ function calculateCorrelationMatrix(covMatrix) {
 }
 
 // Optimize portfolio based on risk aversion parameter
-function optimizePortfolio(returns, covMatrix, riskAversion) {
+/*function optimizePortfolio(returns, covMatrix, riskAversion) {
   // Linear map of A ∈ [1.5,12] → target return
   const maxRet = Math.max(...returns);
   const minRet = Math.min(...returns);
-  const t = (riskAversion - 1.5) / (12 - 1.5);  // normalize to [0,1]
+  const t = (riskAversion - 1.5) / (12 - 1.5); // normalize to [0,1]
   const targetReturn = maxRet - t * (maxRet - minRet);
 
   // Use your existing solver
-  return minimizeVolatilityForTargetReturn(
-    returns, covMatrix, targetReturn)
+  return minimizeVolatilityForTargetReturn(returns, covMatrix, targetReturn);
   // const n = returns.length;
 
   // // Define objective function: maximize utility = r - (A/2) * sigma^2
@@ -95,6 +94,35 @@ function optimizePortfolio(returns, covMatrix, riskAversion) {
   // );
 
   // return optimizedWeights;
+}
+*/
+function optimizePortfolio(
+  returns,
+  covMatrix,
+  riskAversion,
+  customConstraints = []
+) {
+  // Find the global minimum variance portfolio's return as lower bound
+  const minVolWeights = minimizeVolatility(returns, covMatrix);
+  const minVolReturn = calculatePortfolioReturn(returns, minVolWeights);
+
+  // Find maximum Sharpe ratio portfolio's return as upper bound
+  const maxSharpeWeights = maximizeSharpeRatio(returns, covMatrix);
+  const maxSharpeReturn = calculatePortfolioReturn(returns, maxSharpeWeights);
+
+  // Map risk aversion to target return between these meaningful bounds
+  // Higher risk aversion (conservative) -> closer to min variance
+  // Lower risk aversion (aggressive) -> closer to max Sharpe
+  const t = (riskAversion - 1.5) / (12 - 1.5); // normalize to [0,1]
+  const targetReturn = maxSharpeReturn - t * (maxSharpeReturn - minVolReturn);
+
+  // Use existing solver with additional constraints
+  return minimizeVolatilityForTargetReturn(
+    returns,
+    covMatrix,
+    targetReturn,
+    customConstraints
+  );
 }
 
 // Minimize volatility (find global minimum variance portfolio)
@@ -176,7 +204,7 @@ function maximizeSharpeRatio(returns, covMatrix, riskFreeRate = 0.03) {
 }
 
 // Minimize volatility for a target return
-function minimizeVolatilityForTargetReturn(returns, covMatrix, targetReturn) {
+/*function minimizeVolatilityForTargetReturn(returns, covMatrix, targetReturn) {
   const n = returns.length;
 
   // Objective function: minimize portfolio volatility
@@ -214,9 +242,56 @@ function minimizeVolatilityForTargetReturn(returns, covMatrix, targetReturn) {
     bounds
   );
 }
+*/
+function minimizeVolatilityForTargetReturn(
+  returns,
+  covMatrix,
+  targetReturn,
+  customConstraints = []
+) {
+  const n = returns.length;
+
+  // Objective function: minimize portfolio volatility
+  function objectiveFunction(weights) {
+    return calculatePortfolioVolatility(covMatrix, weights);
+  }
+
+  // Initial guess: equal weights
+  const initialWeights = Array(n).fill(1 / n);
+
+  // Basic constraints: weights sum to 1, all weights >= 0, and portfolio return = targetReturn
+  const constraints = [
+    {
+      type: "eq",
+      fun: function (weights) {
+        return math.sum(weights) - 1;
+      },
+    },
+    {
+      type: "eq",
+      fun: function (weights) {
+        return calculatePortfolioReturn(returns, weights) - targetReturn;
+      },
+    },
+    // Add any custom constraints
+    ...customConstraints,
+  ];
+
+  // Bounds: all weights between 0 and 1
+  const bounds = Array(n).fill([0, 1]);
+
+  // Optimize with multiple restarts for better convergence
+  return minimizeNelderMead(
+    objectiveFunction,
+    initialWeights,
+    constraints,
+    bounds,
+    { restarts: 3 }
+  );
+}
 
 // Simple Nelder-Mead optimizer (a simplified version for browser environment)
-function minimizeNelderMead(func, initialX, constraints, bounds, options = {}) {
+/*function minimizeNelderMead(func, initialX, constraints, bounds, options = {}) {
   const maxIterations = options.maxIterations || 1000;
   const tolerance = options.tolerance || 1e-6;
 
@@ -278,6 +353,113 @@ function minimizeNelderMead(func, initialX, constraints, bounds, options = {}) {
 
     // Check if we've converged
     if (step < tolerance) break;
+  }
+
+  // Project back to satisfy the sum constraint (weights sum to 1)
+  const sum = math.sum(x);
+  if (Math.abs(sum - 1) > tolerance) {
+    for (let i = 0; i < x.length; i++) {
+      x[i] = x[i] / sum;
+    }
+  }
+
+  return x;
+}
+*/
+function minimizeNelderMead(func, initialX, constraints, bounds, options = {}) {
+  const maxIterations = options.maxIterations || 2000; // Increase iterations
+  const tolerance = options.tolerance || 1e-8; // Increase precision
+
+  // For simplicity, we'll use a penalty method to handle constraints
+  function penalizedFunc(x) {
+    let penalty = 0;
+
+    // Add penalty for violating bounds
+    for (let i = 0; i < x.length; i++) {
+      if (x[i] < bounds[i][0]) penalty += 10000 * (bounds[i][0] - x[i]) ** 2;
+      if (x[i] > bounds[i][1]) penalty += 10000 * (x[i] - bounds[i][1]) ** 2;
+    }
+
+    // Add penalty for violating constraints
+    for (const constraint of constraints) {
+      if (constraint.type === "eq") {
+        const value = constraint.fun(x);
+        penalty += 10000 * value ** 2;
+      } else if (constraint.type === "ineq") {
+        // For inequality constraints, penalty if < 0 (constraint violated)
+        const value = constraint.fun(x);
+        if (value < 0) {
+          penalty += 10000 * value ** 2;
+        }
+      }
+    }
+
+    return func(x) + penalty;
+  }
+
+  // Very simple optimization approach - gradient descent with projected gradients
+  let x = [...initialX];
+  let iterCount = 0;
+  let step = 0.01;
+  let prevValue = penalizedFunc(x);
+
+  // Add convergence history tracking
+  let history = [];
+  let converged = false;
+
+  while (iterCount < maxIterations && !converged) {
+    iterCount++;
+
+    // Try to improve each dimension separately
+    for (let i = 0; i < x.length; i++) {
+      const oldX = x[i];
+
+      // Try a step in positive direction
+      x[i] = oldX + step;
+      let newValue = penalizedFunc(x);
+
+      // If it doesn't improve, try negative direction
+      if (newValue >= prevValue) {
+        x[i] = oldX - step;
+        newValue = penalizedFunc(x);
+
+        // If neither direction improves, restore original value
+        if (newValue >= prevValue) {
+          x[i] = oldX;
+          continue;
+        }
+      }
+
+      prevValue = newValue;
+    }
+
+    // Reduce step size over time
+    step *= 0.95;
+
+    // Track function value history
+    history.push(prevValue);
+
+    // Check for convergence over recent iterations
+    if (history.length > 10) {
+      const recentValues = history.slice(-10);
+      const range = Math.max(...recentValues) - Math.min(...recentValues);
+      if (range < tolerance) {
+        converged = true;
+      }
+    }
+
+    // Check if we've converged
+    if (step < tolerance) break;
+  }
+
+  // Add restart mechanism for potential local minima
+  if (!converged && options.restarts) {
+    // Try with a different starting point
+    const perturbedStart = initialX.map((v) => v + (Math.random() - 0.5) * 0.2);
+    return minimizeNelderMead(func, perturbedStart, constraints, bounds, {
+      ...options,
+      restarts: options.restarts - 1,
+    });
   }
 
   // Project back to satisfy the sum constraint (weights sum to 1)

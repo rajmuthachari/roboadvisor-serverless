@@ -39,9 +39,9 @@ def main():
         "Xtrackers MSCI China UCITS ETF 1C": "Equity - China",
         "Lion-OCBC Securities China Leaders ETF": "Equity - China",
         "NikkoAM-StraitsTrading MSCI China Electric Vehicles and Future Mobile ETF": "Equity - Sector Specific",
-        "iShares Barclays Capital USD Asia High Yield Bond Index ETF": "Equity - US"
+        "iShares Barclays Capital USD Asia High Yield Bond Index ETF": "Fixed Income - High Yield"
     }
-    
+        
     funds_with_tickers = {
         "SPDR Gold Shares": "O87.SI",
         "Lion-OCBC Securities Singapore Low Carbon ETF": "ESG.SI",

@@ -158,8 +158,7 @@ function createPortfolioAllocationChart() {
   const colors = {
     Equity: "rgb(59, 130, 246)",
     "Fixed Income": "rgb(16, 185, 129)",
-    "Real Estate": "rgb(245, 158, 11)",
-    Alternatives: "rgb(139, 92, 246)",
+    Alternative: "rgb(139, 92, 246)",
     Cash: "rgb(156, 163, 175)",
   };
 
@@ -209,6 +208,79 @@ function createPortfolioAllocationChart() {
     responsive: true,
   });
 }
+/*
+// In charts.js, update the createPortfolioAllocationChart function to plot by asset class instead of fund name
+function createPortfolioAllocationChart() {
+  // Get recommended allocation from app state
+  const allocation = appState.optimalPortfolio.recommendedAllocation;
+
+  // Group allocations by asset class
+  const assetClassGroups = {};
+
+  allocation.forEach((item) => {
+    const fund = item.fund;
+    const assetClass = fundData[fund].assetClass;
+
+    // Get the main asset class (first part before the dash)
+    const mainAssetClass = assetClass.split("-")[0].trim();
+
+    if (!assetClassGroups[mainAssetClass]) {
+      assetClassGroups[mainAssetClass] = 0;
+    }
+
+    assetClassGroups[mainAssetClass] += item.weight;
+  });
+
+  // Convert to arrays for the chart
+  const labels = Object.keys(assetClassGroups);
+  const data = Object.values(assetClassGroups);
+
+  // Define colors for different asset classes
+  const colors = labels.map((assetClass) => {
+    if (assetClass.includes("Equity")) {
+      return "#EC6666"; // Red for equity
+    } else if (assetClass.includes("Fixed Income")) {
+      return "#3366CC"; // Blue for fixed income
+    } else if (assetClass.includes("Alternative")) {
+      return "#FFBF00"; // Yellow for alternatives
+    } else {
+      return "#66AA66"; // Green for others
+    }
+  });
+
+  // Get the container element
+  const container = document.getElementById("portfolio-allocation-chart");
+
+  // Create the chart using Plotly
+  Plotly.newPlot(
+    container,
+    [
+      {
+        labels: labels,
+        values: data,
+        type: "pie",
+        textinfo: "label+percent",
+        textposition: "inside",
+        automargin: true,
+        marker: {
+          colors: colors,
+        },
+        hoverinfo: "label+percent+value",
+        hoverlabel: {
+          bgcolor: "#FFF",
+          bordercolor: "#333",
+          font: { size: 12 },
+        },
+      },
+    ],
+    {
+      title: "Portfolio Allocation by Asset Class",
+      height: 400,
+      margin: { t: 40, b: 40, l: 20, r: 20 },
+    }
+  );
+}
+*/
 
 // Create efficient frontier chart
 function createEfficientFrontierChart() {
