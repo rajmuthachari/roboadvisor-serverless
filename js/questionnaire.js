@@ -243,13 +243,13 @@ function calculateRiskProfile() {
     riskAversion = 1.5;
   } else if (finalScore >= 55) {
     riskProfile = "Growth-Oriented";
-    riskAversion = 2.5;
+    riskAversion = 3.0;
   } else if (finalScore >= 45) {
     riskProfile = "Moderate";
-    riskAversion = 3.5; //4.5
+    riskAversion = 5.0; //4.5
   } else if (finalScore >= 35) {
     riskProfile = "Conservative";
-    riskAversion = 6.0; //7.0
+    riskAversion = 8.0; //7.0
   } else {
     riskProfile = "Very Conservative";
     riskAversion = 12.0;
