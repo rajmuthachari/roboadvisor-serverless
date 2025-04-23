@@ -162,7 +162,7 @@ function minimizeVolatility(returns, covMatrix) {
 // Maximize Sharpe ratio
 function maximizeSharpeRatio(returns, covMatrix, riskFreeRate = 0.03) {
   const n = returns.length;
-
+  // UTILITY function
   // Objective function: maximize Sharpe ratio (minimize negative Sharpe ratio)
   function objectiveFunction(weights) {
     const portfolioReturn = calculatePortfolioReturn(returns, weights);

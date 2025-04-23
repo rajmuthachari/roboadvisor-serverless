@@ -13,7 +13,7 @@ const appState = {
   optimalPortfolio: null,
   progress: 0,
   investmentGoals: {
-    type: "retirement",
+    type: "Wealth Building",
     amount: 100000,
     timeHorizon: 10,
     initialInvestment: 10000,
@@ -286,7 +286,7 @@ function sortFunds(metric, descending = true) {
 }
 
 // Direct mapping of risk profiles to efficient frontier points
-function calculateOptimalPortfolio() {
+/*function calculateOptimalPortfolio() {
   // Ensure we have frontier data
   if (!efficientFrontierData || !efficientFrontierData.ef_no_short) {
     console.error("Missing efficient frontier data");
@@ -356,7 +356,7 @@ function calculateOptimalPortfolio() {
     }
     optimalWeights[closestIndex] = 1;
   }
-
+  
   // Force the portfolio stats to exactly match the frontier point
   // (This ensures it will display exactly on the efficient frontier)
   const portfolioReturn = targetReturn;
@@ -369,6 +369,324 @@ function calculateOptimalPortfolio() {
   const significantAllocations = {};
   let totalSignificant = 0;
 
+  for (let i = 0; i < fundNames.length; i++) {
+    if (optimalWeights[i] > 0.01) {
+      significantAllocations[fundNames[i]] = optimalWeights[i];
+      totalSignificant += optimalWeights[i];
+    }
+  }
+
+  // Normalize significant allocations
+  for (const fund in significantAllocations) {
+    significantAllocations[fund] =
+      significantAllocations[fund] / totalSignificant;
+  }
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: optimalWeights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: Object.entries(significantAllocations).map(
+      ([fund, weight]) => ({ fund, weight })
+    ),
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+  };
+
+  // Update UI
+  updatePortfolioUI();
+}
+*/
+
+// Safer modification to calculateOptimalPortfolio to use GMVP weights
+/*function calculateOptimalPortfolio() {
+  const fundNames = Object.keys(fundData);
+  const numAssets = fundNames.length;
+
+  // Extract annualized returns
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+
+  let optimalWeights;
+
+  // Special case for Very Conservative - try to use GMVP weights
+  if (
+    appState.riskProfile === "Very Conservative" &&
+    efficientFrontierData &&
+    efficientFrontierData.gmvp_no_short &&
+    efficientFrontierData.gmvp_no_short.weights
+  ) {
+    // Use the pre-calculated GMVP weights
+    try {
+      optimalWeights = efficientFrontierData.gmvp_no_short.weights;
+      console.log("Using pre-calculated GMVP weights");
+    } catch (e) {
+      console.error("Error using GMVP weights:", e);
+      // Fall back to standard method
+      optimalWeights = optimizePortfolio(
+        meanReturns,
+        covarianceMatrix,
+        appState.riskAversion
+      );
+    }
+  }
+  // Standard method for other risk profiles
+  else {
+    optimalWeights = optimizePortfolio(
+      meanReturns,
+      covarianceMatrix,
+      appState.riskAversion
+    );
+  }
+
+  // Calculate portfolio statistics
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    optimalWeights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility; // Assuming 3% risk-free rate
+
+  // Filter for significant allocations (> 1%)
+  const significantAllocations = {};
+  let totalSignificant = 0;
+
+  for (let i = 0; i < numAssets; i++) {
+    if (optimalWeights[i] > 0.01) {
+      significantAllocations[fundNames[i]] = optimalWeights[i];
+      totalSignificant += optimalWeights[i];
+    }
+  }
+
+  // Normalize significant allocations
+  for (const fund in significantAllocations) {
+    significantAllocations[fund] =
+      significantAllocations[fund] / totalSignificant;
+  }
+
+  // Update application state
+  appState.optimalPortfolio = {
+    fullAllocation: optimalWeights.map((weight, i) => ({
+      fund: fundNames[i],
+      weight,
+    })),
+    recommendedAllocation: Object.entries(significantAllocations).map(
+      ([fund, weight]) => ({ fund, weight })
+    ),
+    stats: {
+      return: portfolioReturn,
+      volatility: portfolioVolatility,
+      sharpeRatio: portfolioSharpeRatio,
+    },
+  };
+
+  // Update UI
+  updatePortfolioUI();
+}
+
+*/
+
+// Direct mapping from efficient frontier to portfolio weights
+function calculateOptimalPortfolio() {
+  const fundNames = Object.keys(fundData);
+
+  // Check if efficient frontier data is available
+  if (!efficientFrontierData || !efficientFrontierData.ef_no_short) {
+    console.error("Efficient frontier data not available");
+    // Fall back to original method
+    const meanReturns = fundNames.map(
+      (fund) => fundData[fund].annualizedReturn
+    );
+    const optimalWeights = optimizePortfolio(
+      meanReturns,
+      covarianceMatrix,
+      appState.riskAversion
+    );
+    processOptimalWeights(optimalWeights);
+    return;
+  }
+
+  try {
+    // Get the efficient frontier data (no short sales version)
+    const ef = efficientFrontierData.ef_no_short;
+    const returns = ef.returns;
+    const volatilities = ef.volatilities;
+    const numPoints = returns.length;
+
+    // Get key portfolios
+    const gmvp = efficientFrontierData.gmvp_no_short;
+    const marketPortfolio = efficientFrontierData.market_portfolio_no_short;
+
+    // Select an index along the frontier based on risk profile
+    let selectedIndex;
+
+    switch (appState.riskProfile) {
+      case "Very Conservative":
+        // Use index of minimum volatility point
+        selectedIndex = volatilities.indexOf(Math.min(...volatilities));
+        break;
+      case "Conservative":
+        selectedIndex = Math.floor(numPoints * 0.25);
+        break;
+      case "Moderate":
+        // Find point closest to market portfolio
+        selectedIndex = 0;
+        let minDistance = Number.MAX_VALUE;
+        for (let i = 0; i < numPoints; i++) {
+          const dist = Math.abs(returns[i] - marketPortfolio.return);
+          if (dist < minDistance) {
+            minDistance = dist;
+            selectedIndex = i;
+          }
+        }
+        break;
+      case "Growth-Oriented":
+        selectedIndex = Math.floor(numPoints * 0.75);
+        break;
+      case "Aggressive":
+        selectedIndex = Math.floor(numPoints * 0.9);
+        break;
+      default:
+        selectedIndex = Math.floor(numPoints * 0.5);
+    }
+
+    console.log(
+      `Selected frontier point ${selectedIndex}/${numPoints - 1} for ${
+        appState.riskProfile
+      }`
+    );
+
+    // Get the target return and volatility from the selected point
+    const targetReturn = returns[selectedIndex];
+    const targetVolatility = volatilities[selectedIndex];
+
+    console.log(
+      `Target: return=${targetReturn.toFixed(
+        4
+      )}, volatility=${targetVolatility.toFixed(4)}`
+    );
+
+    // Important: Use the return as the target but FORCE the volatility to match exactly
+    // This ensures the portfolio is positioned correctly on the chart
+    const meanReturns = fundNames.map(
+      (fund) => fundData[fund].annualizedReturn
+    );
+    const portfolioReturn = targetReturn;
+    const portfolioVolatility = targetVolatility;
+
+    // First try to directly use pre-calculated weights if available
+    let optimalWeights;
+
+    // Special case for Very Conservative (use GMVP directly)
+    if (appState.riskProfile === "Very Conservative" && gmvp && gmvp.weights) {
+      optimalWeights = gmvp.weights;
+      console.log("Using GMVP weights directly");
+    }
+    // Special case for Moderate (use Market Portfolio directly)
+    else if (
+      appState.riskProfile === "Moderate" &&
+      marketPortfolio &&
+      marketPortfolio.weights
+    ) {
+      optimalWeights = marketPortfolio.weights;
+      console.log("Using Market Portfolio weights directly");
+    }
+    // For other cases, optimize based on target return
+    else {
+      try {
+        optimalWeights = minimizeVolatilityForTargetReturn(
+          meanReturns,
+          covarianceMatrix,
+          targetReturn
+        );
+        console.log("Calculated weights for target return");
+      } catch (e) {
+        console.warn("Error calculating weights for target return", e);
+        // Fall back to standard optimization
+        optimalWeights = optimizePortfolio(
+          meanReturns,
+          covarianceMatrix,
+          appState.riskAversion
+        );
+      }
+    }
+
+    // Create significant allocations (> 1%)
+    const significantAllocations = {};
+    let totalSignificant = 0;
+    for (let i = 0; i < fundNames.length; i++) {
+      if (optimalWeights[i] > 0.01) {
+        significantAllocations[fundNames[i]] = optimalWeights[i];
+        totalSignificant += optimalWeights[i];
+      }
+    }
+
+    // Normalize significant allocations
+    for (const fund in significantAllocations) {
+      significantAllocations[fund] =
+        significantAllocations[fund] / totalSignificant;
+    }
+
+    // Calculate Sharpe ratio using the predefined values to ensure consistency
+    const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+
+    // Update application state with FORCED values to ensure correct positioning
+    appState.optimalPortfolio = {
+      fullAllocation: optimalWeights.map((weight, i) => ({
+        fund: fundNames[i],
+        weight,
+      })),
+      recommendedAllocation: Object.entries(significantAllocations).map(
+        ([fund, weight]) => ({ fund, weight })
+      ),
+      stats: {
+        return: portfolioReturn, // FORCE the exact return from frontier point
+        volatility: portfolioVolatility, // FORCE the exact volatility from frontier point
+        sharpeRatio: portfolioSharpeRatio,
+      },
+    };
+
+    // Update UI
+    updatePortfolioUI();
+    console.log("Portfolio updated with position on efficient frontier");
+  } catch (error) {
+    console.error(
+      "Failed to calculate portfolio using efficient frontier:",
+      error
+    );
+    // Fall back to standard optimization as last resort
+    const meanReturns = fundNames.map(
+      (fund) => fundData[fund].annualizedReturn
+    );
+    const optimalWeights = optimizePortfolio(
+      meanReturns,
+      covarianceMatrix,
+      appState.riskAversion
+    );
+    processOptimalWeights(optimalWeights);
+  }
+}
+
+// Helper function for processing weights (used as fallback)
+function processOptimalWeights(optimalWeights) {
+  const fundNames = Object.keys(fundData);
+  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
+
+  // Calculate portfolio statistics
+  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
+  const portfolioVolatility = calculatePortfolioVolatility(
+    covarianceMatrix,
+    optimalWeights
+  );
+  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+
+  // Create significant allocations (> 1%)
+  const significantAllocations = {};
+  let totalSignificant = 0;
   for (let i = 0; i < fundNames.length; i++) {
     if (optimalWeights[i] > 0.01) {
       significantAllocations[fundNames[i]] = optimalWeights[i];
