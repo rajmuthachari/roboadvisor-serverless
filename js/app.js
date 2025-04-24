@@ -207,6 +207,7 @@ function populateFundCards() {
 
   fundNames.forEach((fundName) => {
     const fund = fundData[fundName];
+    const ticker = (fundsWithTickers && fundsWithTickers[fundName]) || fundName;
     const card = document.createElement("div");
     card.className = "fund-card";
 
@@ -221,6 +222,7 @@ function populateFundCards() {
     // Create card content - REMOVED expense ratio section
     card.innerHTML = `
             <h4 class="font-semibold text-md mb-2">${fundName}</h4>
+            <div class="text-xs mb-2">Ticker: <span class="font-semibold text-indigo-600">${ticker}</span></div>
             <div class="text-xs text-gray-500 mb-2">${fund.assetClass}</div>
             <div class="grid grid-cols-2 gap-1 mb-2">
                 <div>

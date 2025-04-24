@@ -5,133 +5,109 @@
 
 // Create correlation heatmap
 function createCorrelationHeatmap() {
-  // Prepare data for heatmap
+  // 1) get your fund names and tickers
   const fundNames = Object.keys(fundData);
+  // if you have a mapping name→ticker, use it; otherwise fall back to full name
+  const labels = fundNames.map(
+    nm => (fundsWithTickers && fundsWithTickers[nm]) || nm
+  );
 
-  // Calculate correlation matrix from covariance matrix
-  const correlationMatrix = calculateCorrelationMatrix(covarianceMatrix);
+  // 2) compute the correlation matrix
+  const corr = calculateCorrelationMatrix(covarianceMatrix);
 
-  // Create shortened fund names for better display
-  const shortFundNames = fundNames.map((name) => {
-    // Extract the first part of the name (before the first hyphen or space)
-    const shortName = name.split(/[ -]/)[0];
-    return shortName;
-  });
-
-  // Create heatmap data
-  const data = [
-    {
-      z: correlationMatrix,
-      x: shortFundNames,
-      y: shortFundNames,
-      type: "heatmap",
-      colorscale: [
-        [0, "rgb(0, 0, 255)"],
-        [0.5, "rgb(255, 255, 255)"],
-        [1, "rgb(255, 0, 0)"],
-      ],
-      zmin: -1,
-      zmax: 1,
-    },
-  ];
-
-  // Create layout
-  const layout = {
-    margin: {
-      l: 50,
-      r: 20,
-      b: 50,
-      t: 20,
-      pad: 4,
-    },
-    xaxis: {
-      tickangle: -45,
-    },
+  // 3) build the Plotly trace
+  const trace = {
+    z: corr,
+    x: labels,
+    y: labels,
+    type: 'heatmap',
+    colorscale: [
+      [0,   'rgb(33,102,172)'],   // deep blue at -1
+      [0.5, 'rgb(255,255,255)'],  // white at 0
+      [1,   'rgb(178,24,43)']     // deep red at +1
+    ],
+    zmin: -1,
+    zmax:  1,
+    hovertemplate: 'x: %{x}<br>y: %{y}<br>corr: %{z:.2f}<extra></extra>'
   };
 
-  // Create heatmap
-  Plotly.newPlot("correlation-heatmap", data, layout, { responsive: true });
+  // 4) layout tweaks
+  const layout = {
+    title: 'Fund Correlation Matrix',
+    xaxis: { tickangle: -45 },
+    yaxis: { autorange: 'reversed' },  // so the first label is at top
+    margin: { l: 80, b: 100, t: 50, r: 50 }
+  };
+
+  // 5) render it
+  Plotly.newPlot('correlation-heatmap', [trace], layout, { responsive: true });
 }
 
 // Create risk-return scatter plot
 function createRiskReturnScatter() {
   const fundNames = Object.keys(fundData);
-  const returns = fundNames.map((fund) => fundData[fund].annualizedReturn);
-  const volatilities = fundNames.map(
-    (fund) => fundData[fund].annualizedVolatility
+  const labels = fundNames.map(
+    nm => (fundsWithTickers && fundsWithTickers[nm]) || nm
   );
-  const sharpeRatios = fundNames.map((fund) => fundData[fund].sharpeRatio);
 
-  // Create shortened fund names for better display
-  const shortFundNames = fundNames.map((name) => {
-    // Extract the first part of the name (before the first hyphen or space)
-    const shortName = name.split(/[ -]/)[0];
-    return shortName;
+  const returns = fundNames.map(nm => fundData[nm].annualizedReturn);
+  const vols   = fundNames.map(nm => fundData[nm].annualizedVolatility);
+  const sharpes= fundNames.map(nm => fundData[nm].sharpeRatio);
+
+  // 3) bubble sizes (min 10 → max ~30)
+  const sizes = sharpes.map(s => Math.max(10, 10 + 20 * s));
+
+  const colors = fundNames.map(nm => {
+    const ac = fundData[nm].assetClass.toLowerCase();
+    if (ac.includes("equity"))       return 'rgb(59,130,246)';  // blue
+    if (ac.includes("fixed income")) return 'rgb(16,185,129)';  // green
+    if (ac.includes("alternative"))  return 'rgb(245,158,11)';  // yellow
+    return 'rgb(156,163,175)';                                // gray
   });
 
-  // Calculate sizes based on sharpe ratio
-  const normalizedSharpe = sharpeRatios.map((ratio) => {
-    return Math.max(10, 20 + ratio * 20); // Min size 10, scale based on sharpe
-  });
-
-  // Create marker colors based on asset class
-  const markerColors = fundNames.map((fund) => {
-    const assetClass = fundData[fund].assetClass;
-    if (assetClass.includes("Equity")) return "rgb(59, 130, 246)"; // Blue
-    if (assetClass.includes("Fixed Income")) return "rgb(16, 185, 129)"; // Green
-    if (assetClass.includes("Real Estate")) return "rgb(245, 158, 11)"; // Yellow
-    return "rgb(156, 163, 175)"; // Gray
-  });
-
-  // Create scatter plot data
-  const data = [
-    {
-      x: volatilities,
-      y: returns,
-      mode: "markers+text",
-      type: "scatter",
-      text: shortFundNames,
-      textposition: "top",
-      marker: {
-        size: normalizedSharpe,
-        color: markerColors,
-        opacity: 0.8,
-        line: {
-          width: 1,
-          color: "rgb(229, 231, 235)",
-        },
-      },
-      hovertemplate:
-        "<b>%{text}</b><br>" +
-        "Return: %{y:.2%}<br>" +
-        "Volatility: %{x:.2%}<br>" +
-        "<extra></extra>",
-    },
-  ];
-
-  // Create layout
-  const layout = {
-    margin: {
-      l: 50,
-      r: 20,
-      b: 50,
-      t: 20,
-      pad: 4,
-    },
-    xaxis: {
-      title: "Volatility (Risk)",
-      tickformat: ".0%",
-    },
-    yaxis: {
-      title: "Annual Return",
-      tickformat: ".0%",
-    },
-    hovermode: "closest",
-    showlegend: false,
+  const trace = {
+    x: vols,
+    y: returns,
+    mode: 'markers+text',
+    type: 'scatter',
+    text: labels,
+    textposition: 'top center',
+    hovertemplate:
+      '<b>%{text}</b><br>' +
+      'Return: %{y:.2%}<br>' +
+      'Volatility: %{x:.2%}<br>' +
+      'Sharpe: %{marker.size:.0f}<extra></extra>',
+    marker: {
+      size: sizes,
+      color: colors,
+      opacity: 0.8,
+      line: { width: 1, color: 'rgb(229,231,235)' }
+    }
   };
 
-  // Create scatter plot
-  Plotly.newPlot("risk-return-scatter", data, layout, { responsive: true });
+  const layout = {
+    title: 'Risk vs. Return',
+    xaxis: {
+      title: 'Annualized Volatility',
+      tickformat: '.0%',
+      zeroline: true,             // ← show the 0% vertical line
+      zerolinecolor: '#ccc',
+      zerolinewidth: 1,
+      showgrid: true
+    },
+    yaxis: {
+      title: 'Annualized Return',
+      tickformat: '.0%',
+      zeroline: true,             // ← show the 0% horizontal line
+      zerolinecolor: '#ccc',
+      zerolinewidth: 1,
+      showgrid: true
+    },
+    margin: { l: 60, r: 20, t: 40, b: 60 },
+    hovermode: 'closest'
+  };
+
+  Plotly.newPlot('risk-return-scatter', [trace], layout, { responsive: true });
 }
 
 // Create portfolio allocation chart
