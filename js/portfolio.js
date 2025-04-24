@@ -46,56 +46,6 @@ function calculateCorrelationMatrix(covMatrix) {
   return corrMatrix;
 }
 
-// Optimize portfolio based on risk aversion parameter
-/*function optimizePortfolio(returns, covMatrix, riskAversion) {
-  // Linear map of A ∈ [1.5,12] → target return
-  const maxRet = Math.max(...returns);
-  const minRet = Math.min(...returns);
-  const t = (riskAversion - 1.5) / (12 - 1.5); // normalize to [0,1]
-  const targetReturn = maxRet - t * (maxRet - minRet);
-
-  // Use your existing solver
-  return minimizeVolatilityForTargetReturn(returns, covMatrix, targetReturn);
-  // const n = returns.length;
-
-  // // Define objective function: maximize utility = r - (A/2) * sigma^2
-  // function objectiveFunction(weights) {
-  //   const portfolioReturn = calculatePortfolioReturn(returns, weights);
-  //   const portfolioVariance =
-  //     calculatePortfolioVolatility(covMatrix, weights) ** 2;
-
-  //   return -(portfolioReturn - (riskAversion / 2) * portfolioVariance);
-  // }
-
-  // // Initial guess: equal weights
-  // const initialWeights = Array(n).fill(1 / n);
-
-  // // Constraints: weights sum to 1 and all weights >= 0
-  // const constraints = [];
-
-  // // Sum of weights = 1
-  // const sumConstraint = {
-  //   type: "eq",
-  //   fun: function (weights) {
-  //     return math.sum(weights) - 1;
-  //   },
-  // };
-  // constraints.push(sumConstraint);
-
-  // // Bounds: all weights between 0 and 1
-  // const bounds = Array(n).fill([0, 1]);
-
-  // // Use a simple optimization approach for the browser
-  // const optimizedWeights = minimizeNelderMead(
-  //   objectiveFunction,
-  //   initialWeights,
-  //   constraints,
-  //   bounds
-  // );
-
-  // return optimizedWeights;
-}
-*/
 function optimizePortfolio(
   returns,
   covMatrix,
@@ -160,7 +110,7 @@ function minimizeVolatility(returns, covMatrix) {
 }
 
 // Maximize Sharpe ratio
-function maximizeSharpeRatio(returns, covMatrix, riskFreeRate = 0.03) {
+function maximizeSharpeRatio(returns, covMatrix, riskFreeRate = 0.025) {
   const n = returns.length;
   // UTILITY function
   // Objective function: maximize Sharpe ratio (minimize negative Sharpe ratio)
@@ -377,7 +327,7 @@ function generateEfficientFrontier(returns, covMatrix) {
     covMatrix,
     maxSharpeWeights
   );
-  const maxSharpeRatio = (maxSharpeReturn - 0.03) / maxSharpeVolatility; // Assuming 3% risk-free rate
+  const maxSharpeRatio = (maxSharpeReturn - 0.0255) / maxSharpeVolatility; // Assuming 2.55% risk-free rate
 
   // Find maximum return portfolio (100% in highest return asset)
   const maxReturnIndex = returns.indexOf(Math.max(...returns));
@@ -386,7 +336,7 @@ function generateEfficientFrontier(returns, covMatrix) {
   const maxReturn = returns[maxReturnIndex];
 
   // Generate points along the efficient frontier
-  const numPoints = 50;
+  const numPoints = 500;
   const targetReturns = [];
 
   // Generate returns between min variance return and max return

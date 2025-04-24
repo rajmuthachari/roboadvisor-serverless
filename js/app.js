@@ -207,7 +207,6 @@ function populateFundCards() {
 
   fundNames.forEach((fundName) => {
     const fund = fundData[fundName];
-    const ticker = (fundsWithTickers && fundsWithTickers[fundName]) || fundName;
     const card = document.createElement("div");
     card.className = "fund-card";
 
@@ -215,14 +214,13 @@ function populateFundCards() {
     let bgColor = "bg-white";
     if (fund.assetClass.includes("Equity")) bgColor = "bg-blue-50";
     else if (fund.assetClass.includes("Fixed Income")) bgColor = "bg-green-50";
-    else if (fund.assetClass.includes("Alternative")) bgColor = "bg-yellow-50";
+    else if (fund.assetClass.includes("Real Estate")) bgColor = "bg-yellow-50";
 
     card.classList.add(bgColor);
 
-    // Create card content - REMOVED expense ratio section
+    // Create card content - now with Sortino ratio
     card.innerHTML = `
             <h4 class="font-semibold text-md mb-2">${fundName}</h4>
-            <div class="text-xs mb-2">Ticker: <span class="font-semibold text-indigo-600">${ticker}</span></div>
             <div class="text-xs text-gray-500 mb-2">${fund.assetClass}</div>
             <div class="grid grid-cols-2 gap-1 mb-2">
                 <div>
@@ -251,6 +249,20 @@ function populateFundCards() {
                         ${fund.sharpeRatio.toFixed(2)}
                     </div>
                 </div>
+                <div>
+                    <div class="text-xs text-gray-500">Sortino Ratio</div>
+                    <div class="font-medium ${
+                      fund.sortinoRatio >= 0 ? "text-green-600" : "text-red-600"
+                    }">
+                        ${
+                          fund.sortinoRatio
+                            ? fund.sortinoRatio.toFixed(2)
+                            : "N/A"
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-1 mb-2">
                 <div>
                     <div class="text-xs text-gray-500">Max Drawdown</div>
                     <div class="font-medium text-red-600">${(
@@ -286,211 +298,6 @@ function sortFunds(metric, descending = true) {
   // Re-append the cards in the sorted order
   cards.forEach((card) => container.appendChild(card));
 }
-
-// Direct mapping of risk profiles to efficient frontier points
-/*function calculateOptimalPortfolio() {
-  // Ensure we have frontier data
-  if (!efficientFrontierData || !efficientFrontierData.ef_no_short) {
-    console.error("Missing efficient frontier data");
-    return;
-  }
-
-  const ef = efficientFrontierData.ef_no_short;
-  const fundNames = Object.keys(fundData);
-
-  // Step 1: Find the appropriate index based on risk profile
-  const numPoints = ef.returns.length;
-  let targetIndex;
-
-  switch (appState.riskProfile) {
-    case "Very Conservative":
-      targetIndex = 0;
-      break; // Lowest risk
-    case "Conservative":
-      targetIndex = Math.floor(numPoints * 0.25);
-      break;
-    case "Moderate":
-      targetIndex = Math.floor(numPoints * 0.5);
-      break;
-    case "Growth-Oriented":
-      targetIndex = Math.floor(numPoints * 0.75);
-      break;
-    case "Aggressive":
-      targetIndex = Math.floor(numPoints * 0.9);
-      break;
-    default:
-      targetIndex = Math.floor(numPoints * 0.5);
-  }
-
-  // Step 2: Get the return and volatility for this point
-  const targetReturn = ef.returns[targetIndex];
-  const targetVolatility = ef.volatilities[targetIndex];
-
-  console.log(
-    `Using frontier point ${targetIndex}/${
-      numPoints - 1
-    } with return ${targetReturn.toFixed(
-      4
-    )} and volatility ${targetVolatility.toFixed(4)}`
-  );
-
-  // Step 3: Calculate weights for this return target
-  let optimalWeights;
-  try {
-    optimalWeights = minimizeVolatilityForTargetReturn(
-      fundNames.map((fund) => fundData[fund].annualizedReturn),
-      covarianceMatrix,
-      targetReturn
-    );
-  } catch (e) {
-    console.error("Error calculating weights:", e);
-    // Use a simple approach - all weight in the closest fund to this return
-    optimalWeights = Array(fundNames.length).fill(0);
-    const returns = fundNames.map((fund) => fundData[fund].annualizedReturn);
-    let closestIndex = 0;
-    let minDistance = Math.abs(returns[0] - targetReturn);
-    for (let i = 1; i < returns.length; i++) {
-      const distance = Math.abs(returns[i] - targetReturn);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = i;
-      }
-    }
-    optimalWeights[closestIndex] = 1;
-  }
-  
-  // Force the portfolio stats to exactly match the frontier point
-  // (This ensures it will display exactly on the efficient frontier)
-  const portfolioReturn = targetReturn;
-  const portfolioVolatility = targetVolatility;
-  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
-
-  console.log("Optimal weights:", optimalWeights);
-
-  // Step 4: Create the portfolio with significant allocations
-  const significantAllocations = {};
-  let totalSignificant = 0;
-
-  for (let i = 0; i < fundNames.length; i++) {
-    if (optimalWeights[i] > 0.01) {
-      significantAllocations[fundNames[i]] = optimalWeights[i];
-      totalSignificant += optimalWeights[i];
-    }
-  }
-
-  // Normalize significant allocations
-  for (const fund in significantAllocations) {
-    significantAllocations[fund] =
-      significantAllocations[fund] / totalSignificant;
-  }
-
-  // Update application state
-  appState.optimalPortfolio = {
-    fullAllocation: optimalWeights.map((weight, i) => ({
-      fund: fundNames[i],
-      weight,
-    })),
-    recommendedAllocation: Object.entries(significantAllocations).map(
-      ([fund, weight]) => ({ fund, weight })
-    ),
-    stats: {
-      return: portfolioReturn,
-      volatility: portfolioVolatility,
-      sharpeRatio: portfolioSharpeRatio,
-    },
-  };
-
-  // Update UI
-  updatePortfolioUI();
-}
-*/
-
-// Safer modification to calculateOptimalPortfolio to use GMVP weights
-/*function calculateOptimalPortfolio() {
-  const fundNames = Object.keys(fundData);
-  const numAssets = fundNames.length;
-
-  // Extract annualized returns
-  const meanReturns = fundNames.map((fund) => fundData[fund].annualizedReturn);
-
-  let optimalWeights;
-
-  // Special case for Very Conservative - try to use GMVP weights
-  if (
-    appState.riskProfile === "Very Conservative" &&
-    efficientFrontierData &&
-    efficientFrontierData.gmvp_no_short &&
-    efficientFrontierData.gmvp_no_short.weights
-  ) {
-    // Use the pre-calculated GMVP weights
-    try {
-      optimalWeights = efficientFrontierData.gmvp_no_short.weights;
-      console.log("Using pre-calculated GMVP weights");
-    } catch (e) {
-      console.error("Error using GMVP weights:", e);
-      // Fall back to standard method
-      optimalWeights = optimizePortfolio(
-        meanReturns,
-        covarianceMatrix,
-        appState.riskAversion
-      );
-    }
-  }
-  // Standard method for other risk profiles
-  else {
-    optimalWeights = optimizePortfolio(
-      meanReturns,
-      covarianceMatrix,
-      appState.riskAversion
-    );
-  }
-
-  // Calculate portfolio statistics
-  const portfolioReturn = calculatePortfolioReturn(meanReturns, optimalWeights);
-  const portfolioVolatility = calculatePortfolioVolatility(
-    covarianceMatrix,
-    optimalWeights
-  );
-  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility; // Assuming 3% risk-free rate
-
-  // Filter for significant allocations (> 1%)
-  const significantAllocations = {};
-  let totalSignificant = 0;
-
-  for (let i = 0; i < numAssets; i++) {
-    if (optimalWeights[i] > 0.01) {
-      significantAllocations[fundNames[i]] = optimalWeights[i];
-      totalSignificant += optimalWeights[i];
-    }
-  }
-
-  // Normalize significant allocations
-  for (const fund in significantAllocations) {
-    significantAllocations[fund] =
-      significantAllocations[fund] / totalSignificant;
-  }
-
-  // Update application state
-  appState.optimalPortfolio = {
-    fullAllocation: optimalWeights.map((weight, i) => ({
-      fund: fundNames[i],
-      weight,
-    })),
-    recommendedAllocation: Object.entries(significantAllocations).map(
-      ([fund, weight]) => ({ fund, weight })
-    ),
-    stats: {
-      return: portfolioReturn,
-      volatility: portfolioVolatility,
-      sharpeRatio: portfolioSharpeRatio,
-    },
-  };
-
-  // Update UI
-  updatePortfolioUI();
-}
-
-*/
 
 // Direct mapping from efficient frontier to portfolio weights
 function calculateOptimalPortfolio() {
@@ -634,7 +441,8 @@ function calculateOptimalPortfolio() {
     }
 
     // Calculate Sharpe ratio using the predefined values to ensure consistency
-    const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+    const portfolioSharpeRatio =
+      (portfolioReturn - 0.0255) / portfolioVolatility;
 
     // Update application state with FORCED values to ensure correct positioning
     appState.optimalPortfolio = {
@@ -684,7 +492,7 @@ function processOptimalWeights(optimalWeights) {
     covarianceMatrix,
     optimalWeights
   );
-  const portfolioSharpeRatio = (portfolioReturn - 0.03) / portfolioVolatility;
+  const portfolioSharpeRatio = (portfolioReturn - 0.0255) / portfolioVolatility;
 
   // Create significant allocations (> 1%)
   const significantAllocations = {};

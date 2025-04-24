@@ -9,7 +9,7 @@ function createCorrelationHeatmap() {
   const fundNames = Object.keys(fundData);
   // if you have a mapping name→ticker, use it; otherwise fall back to full name
   const labels = fundNames.map(
-    nm => (fundsWithTickers && fundsWithTickers[nm]) || nm
+    (nm) => (fundsWithTickers && fundsWithTickers[nm]) || nm
   );
 
   // 2) compute the correlation matrix
@@ -20,94 +20,94 @@ function createCorrelationHeatmap() {
     z: corr,
     x: labels,
     y: labels,
-    type: 'heatmap',
+    type: "heatmap",
     colorscale: [
-      [0,   'rgb(33,102,172)'],   // deep blue at -1
-      [0.5, 'rgb(255,255,255)'],  // white at 0
-      [1,   'rgb(178,24,43)']     // deep red at +1
+      [0, "rgb(33,102,172)"], // deep blue at -1
+      [0.5, "rgb(255,255,255)"], // white at 0
+      [1, "rgb(178,24,43)"], // deep red at +1
     ],
     zmin: -1,
-    zmax:  1,
-    hovertemplate: 'x: %{x}<br>y: %{y}<br>corr: %{z:.2f}<extra></extra>'
+    zmax: 1,
+    hovertemplate: "x: %{x}<br>y: %{y}<br>corr: %{z:.2f}<extra></extra>",
   };
 
   // 4) layout tweaks
   const layout = {
-    title: 'Fund Correlation Matrix',
+    title: "Fund Correlation Matrix",
     xaxis: { tickangle: -45 },
-    yaxis: { autorange: 'reversed' },  // so the first label is at top
-    margin: { l: 80, b: 100, t: 50, r: 50 }
+    yaxis: { autorange: "reversed" }, // so the first label is at top
+    margin: { l: 80, b: 100, t: 50, r: 50 },
   };
 
   // 5) render it
-  Plotly.newPlot('correlation-heatmap', [trace], layout, { responsive: true });
+  Plotly.newPlot("correlation-heatmap", [trace], layout, { responsive: true });
 }
 
 // Create risk-return scatter plot
 function createRiskReturnScatter() {
   const fundNames = Object.keys(fundData);
   const labels = fundNames.map(
-    nm => (fundsWithTickers && fundsWithTickers[nm]) || nm
+    (nm) => (fundsWithTickers && fundsWithTickers[nm]) || nm
   );
 
-  const returns = fundNames.map(nm => fundData[nm].annualizedReturn);
-  const vols   = fundNames.map(nm => fundData[nm].annualizedVolatility);
-  const sharpes= fundNames.map(nm => fundData[nm].sharpeRatio);
+  const returns = fundNames.map((nm) => fundData[nm].annualizedReturn);
+  const vols = fundNames.map((nm) => fundData[nm].annualizedVolatility);
+  const sharpes = fundNames.map((nm) => fundData[nm].sharpeRatio);
 
   // 3) bubble sizes (min 10 → max ~30)
-  const sizes = sharpes.map(s => Math.max(10, 10 + 20 * s));
+  const sizes = sharpes.map((s) => Math.max(10, 10 + 20 * s));
 
-  const colors = fundNames.map(nm => {
+  const colors = fundNames.map((nm) => {
     const ac = fundData[nm].assetClass.toLowerCase();
-    if (ac.includes("equity"))       return 'rgb(59,130,246)';  // blue
-    if (ac.includes("fixed income")) return 'rgb(16,185,129)';  // green
-    if (ac.includes("alternative"))  return 'rgb(245,158,11)';  // yellow
-    return 'rgb(156,163,175)';                                // gray
+    if (ac.includes("equity")) return "rgb(59,130,246)"; // blue
+    if (ac.includes("fixed income")) return "rgb(16,185,129)"; // green
+    if (ac.includes("alternative")) return "rgb(245,158,11)"; // yellow
+    return "rgb(156,163,175)"; // gray
   });
 
   const trace = {
     x: vols,
     y: returns,
-    mode: 'markers+text',
-    type: 'scatter',
+    mode: "markers+text",
+    type: "scatter",
     text: labels,
-    textposition: 'top center',
+    textposition: "top center",
     hovertemplate:
-      '<b>%{text}</b><br>' +
-      'Return: %{y:.2%}<br>' +
-      'Volatility: %{x:.2%}<br>' +
-      'Sharpe: %{marker.size:.0f}<extra></extra>',
+      "<b>%{text}</b><br>" +
+      "Return: %{y:.2%}<br>" +
+      "Volatility: %{x:.2%}<br>" +
+      "Sharpe: %{marker.size:.0f}<extra></extra>",
     marker: {
       size: sizes,
       color: colors,
       opacity: 0.8,
-      line: { width: 1, color: 'rgb(229,231,235)' }
-    }
+      line: { width: 1, color: "rgb(229,231,235)" },
+    },
   };
 
   const layout = {
-    title: 'Risk vs. Return',
+    title: "Risk vs. Return",
     xaxis: {
-      title: 'Annualized Volatility',
-      tickformat: '.0%',
-      zeroline: true,             // ← show the 0% vertical line
-      zerolinecolor: '#ccc',
+      title: "Annualized Volatility",
+      tickformat: ".0%",
+      zeroline: true, // ← show the 0% vertical line
+      zerolinecolor: "#ccc",
       zerolinewidth: 1,
-      showgrid: true
+      showgrid: true,
     },
     yaxis: {
-      title: 'Annualized Return',
-      tickformat: '.0%',
-      zeroline: true,             // ← show the 0% horizontal line
-      zerolinecolor: '#ccc',
+      title: "Annualized Return",
+      tickformat: ".0%",
+      zeroline: true, // ← show the 0% horizontal line
+      zerolinecolor: "#ccc",
       zerolinewidth: 1,
-      showgrid: true
+      showgrid: true,
     },
     margin: { l: 60, r: 20, t: 40, b: 60 },
-    hovermode: 'closest'
+    hovermode: "closest",
   };
 
-  Plotly.newPlot('risk-return-scatter', [trace], layout, { responsive: true });
+  Plotly.newPlot("risk-return-scatter", [trace], layout, { responsive: true });
 }
 
 // Create portfolio allocation chart
@@ -218,7 +218,7 @@ function createEfficientFrontierChart() {
   const marketPortfolio = efficientFrontierData.market_portfolio_no_short;
 
   // Risk-free rate and calculate Capital Market Line
-  const riskFreeRate = 0.03; // 3% risk-free rate
+  const riskFreeRate = 0.0255; // 2.55% risk-free rate
   const cmlVolatilities = [0, marketPortfolio.volatility * 2];
   const cmlReturns = cmlVolatilities.map(
     (vol) => riskFreeRate + marketPortfolio.sharpe * vol
@@ -374,10 +374,10 @@ function createEfficientFrontierChart() {
       },
       {
         x: 0.01,
-        y: 0.03,
+        y: 0.0255,
         xref: "paper",
         yref: "paper",
-        text: "Risk-Free Rate: 3%",
+        text: "Risk-Free Rate: 2.55%",
         showarrow: false,
         font: {
           size: 12,

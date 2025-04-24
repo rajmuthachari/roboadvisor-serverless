@@ -4,10 +4,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import json
 import yfinance as yf
-from scipy.optimize import minimize
 from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
+
+# Import PyPortfolioOpt modules
+from pypfopt import EfficientFrontier, risk_models, expected_returns
+from pypfopt import CLA, plotting
+from pypfopt.efficient_frontier import EfficientCVaR
 
 # Define the output JSON path
 output_json = 'portfolio_data.json'
@@ -43,7 +47,7 @@ def main():
     }
         
     funds_with_tickers = {
-        "SPDR Gold Shares": "O87.SI",
+        "SPDR Gold Shares": "GSD.SI",
         "Lion-OCBC Securities Singapore Low Carbon ETF": "ESG.SI",
         "Lion-OCBC Securities Hang Seng TECH ETF": "HST.SI",
         "Nikko AM Singapore STI ETF": "G3B.SI",
@@ -60,22 +64,19 @@ def main():
         prices_df = fetch_fund_data(funds_with_tickers)
         print(f"Loaded price data with shape: {prices_df.shape}")
         
-        # Save the data to CSV (optional)
-        #prices_df.to_csv("close_prices.csv")
-        #print("Saved price data to close_prices.csv")
-        
         # 2. Calculate daily returns
         returns_df = prices_df.pct_change().dropna()
         print(f"Calculated returns with shape: {returns_df.shape}")
         
         # 3. Calculate fund metrics
-        fund_metrics = calculate_metrics(returns_df, risk_free_rate=0.03)
+        fund_metrics = calculate_metrics(returns_df, risk_free_rate=0.0255)
         
-        # 4. Calculate covariance matrix
-        cov_matrix = returns_df.cov() * 252  # Annualized
+        # 4. Calculate covariance matrix using PyPortfolioOpt
+        # Use PyPortfolioOpt's risk_models to compute a more robust covariance matrix
+        cov_matrix = risk_models.sample_cov(prices_df, returns_data=False, frequency=252)
         
-        # 5. Efficient frontier analysis
-        ef_results = efficient_frontier(returns_df, cov_matrix)
+        # 5. Efficient frontier analysis using PyPortfolioOpt
+        ef_results = efficient_frontier_analysis(prices_df, returns_df, cov_matrix)
         
         # 6. Prepare data for JSON export
         output_data = prepare_output_data(
@@ -92,9 +93,13 @@ def main():
             json.dump(output_data, f, indent=2)
         
         print(f"Successfully saved results to {output_json}")
+
+        plot_efficient_frontier(ef_results, fund_metrics)
         
     except Exception as e:
         print(f"Error during portfolio analysis: {e}")
+        import traceback
+        traceback.print_exc()
 
 def fetch_fund_data(fund_tickers):
     """
@@ -111,8 +116,8 @@ def fetch_fund_data(fund_tickers):
         DataFrame containing closing prices for all funds
     """
     # Set the date range for historical data (2 years of data)
-    end_date = datetime.now().strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=2*365)).strftime('%Y-%m-%d')
+    end_date="2025-04-24"
+    start_date="2023-04-21"
     
     print(f"Fetching fund data from {start_date} to {end_date}...")
     
@@ -139,7 +144,7 @@ def fetch_fund_data(fund_tickers):
     
     return prices_df
 
-def calculate_metrics(returns_df, risk_free_rate=0.03):
+def calculate_metrics(returns_df, risk_free_rate=0.0255):
     """Calculate key performance metrics for each fund"""
     # Trading days in a year
     trading_days = 252
@@ -190,171 +195,125 @@ def calculate_metrics(returns_df, risk_free_rate=0.03):
     
     return metrics
 
-def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
-    """Generate the efficient frontier with and without short sales"""
-    # Annualized mean returns
-    mean_returns = returns_df.mean() * 252
+def efficient_frontier_analysis(prices_df, returns_df, cov_matrix, rf_rate=0.0255, points=500):
+    """
+    Generate the efficient frontier with and without short sales using PyPortfolioOpt
+    """
+    # Get expected returns using mean historical return method
+    # For more robust results, we use PyPortfolioOpt's expected_returns module
+    mean_returns = expected_returns.mean_historical_return(prices_df, frequency=252)
     
     # Number of assets
     n_assets = len(mean_returns)
+    asset_names = mean_returns.index.tolist()
     
-    # Function to minimize portfolio volatility for a given target return
-    def portfolio_volatility(weights, mean_returns, cov_matrix):
-        return np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+    # Generate efficient frontier with short sales allowed
+    # We'll use the CLA (Critical Line Algorithm) which is more efficient for this
+    # Create the efficient frontier object with short sales allowed
+    ef_with_short = EfficientFrontier(mean_returns, cov_matrix, weight_bounds=(-1, 1))
     
-    # Function to calculate portfolio return
-    def portfolio_return(weights, mean_returns):
-        return np.sum(mean_returns * weights)
+    # Find the Global Minimum Variance Portfolio (GMVP) with short sales
+    ef_with_short.min_volatility()
+    gmvp_with_short_weights = ef_with_short.clean_weights()
+    gmvp_with_short_performance = ef_with_short.portfolio_performance()
     
-    # Function for portfolio volatility optimization
-    def min_volatility(target_return, mean_returns, cov_matrix, constraint_set):
-        # Objective function (minimize volatility)
-        def objective(weights):
-            return portfolio_volatility(weights, mean_returns, cov_matrix)
-        
-        # Constraints
-        constraints = [{'type': 'eq', 'fun': lambda x: portfolio_return(x, mean_returns) - target_return}]
-        
-        # Add constraint that weights sum to 1
-        if 'sum' in constraint_set:
-            constraints.append({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        
-        # Bounds for weights
-        bounds = None
-        if 'long_only' in constraint_set:
-            bounds = tuple((0, 1) for _ in range(n_assets))
-        else:
-            bounds = tuple((-1, 1) for _ in range(n_assets))
-        
-        # Initial guess
-        initial_guess = np.array([1/n_assets] * n_assets)
-        
-        # Optimize
-        result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
-        
-        return result['fun'], result['x']
+    # Store the results
+    gmvp_with_short = {
+        'volatility': gmvp_with_short_performance[1],
+        'return': gmvp_with_short_performance[0],
+        'weights': [gmvp_with_short_weights.get(asset, 0) for asset in asset_names]
+    }
     
-    # Find the Global Minimum Variance Portfolio (GMVP)
-    def find_gmvp(mean_returns, cov_matrix, constraint_set):
-        # Objective function (minimize volatility)
-        def objective(weights):
-            return portfolio_volatility(weights, mean_returns, cov_matrix)
-        
-        # Constraints
-        constraints = []
-        
-        # Add constraint that weights sum to 1
-        if 'sum' in constraint_set:
-            constraints.append({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        
-        # Bounds for weights
-        bounds = None
-        if 'long_only' in constraint_set:
-            bounds = tuple((0, 1) for _ in range(n_assets))
-        else:
-            bounds = tuple((-1, 1) for _ in range(n_assets))
-        
-        # Initial guess
-        initial_guess = np.array([1/n_assets] * n_assets)
-        
-        # Optimize
-        result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
-        
-        return {
-            'volatility': result['fun'],
-            'return': portfolio_return(result['x'], mean_returns),
-            'weights': result['x'].tolist()
-        }
+    # Find the Market Portfolio (tangent/max Sharpe ratio) with short sales
+    ef_with_short = EfficientFrontier(mean_returns, cov_matrix, weight_bounds=(-1, 1))
+    ef_with_short.max_sharpe(risk_free_rate=rf_rate)
+    market_portfolio_with_short_weights = ef_with_short.clean_weights()
+    market_portfolio_with_short_performance = ef_with_short.portfolio_performance()
     
-    # Find the Market Portfolio (tangent portfolio)
-    def find_market_portfolio(mean_returns, cov_matrix, rf_rate, constraint_set):
-        # Objective function (maximize Sharpe ratio)
-        def objective(weights):
-            port_return = portfolio_return(weights, mean_returns)
-            port_volatility = portfolio_volatility(weights, mean_returns, cov_matrix)
-            return -(port_return - rf_rate) / port_volatility  # Negative because we're minimizing
-        
-        # Constraints
-        constraints = []
-        
-        # Add constraint that weights sum to 1
-        if 'sum' in constraint_set:
-            constraints.append({'type': 'eq', 'fun': lambda x: np.sum(x) - 1})
-        
-        # Bounds for weights
-        bounds = None
-        if 'long_only' in constraint_set:
-            bounds = tuple((0, 1) for _ in range(n_assets))
-        else:
-            bounds = tuple((-1, 1) for _ in range(n_assets))
-        
-        # Initial guess
-        initial_guess = np.array([1/n_assets] * n_assets)
-        
-        # Optimize
-        result = minimize(objective, initial_guess, method='SLSQP', bounds=bounds, constraints=constraints)
-        
-        port_vol = portfolio_volatility(result['x'], mean_returns, cov_matrix)
-        port_ret = portfolio_return(result['x'], mean_returns)
-        sharpe = (port_ret - rf_rate) / port_vol
-        
-        return {
-            'volatility': port_vol,
-            'return': port_ret,
-            'weights': result['x'].tolist(),
-            'sharpe': sharpe
-        }
+    # Store the results
+    market_portfolio_with_short = {
+        'volatility': market_portfolio_with_short_performance[1],
+        'return': market_portfolio_with_short_performance[0],
+        'weights': [market_portfolio_with_short_weights.get(asset, 0) for asset in asset_names],
+        'sharpe': market_portfolio_with_short_performance[2]
+    }
     
-    # Define constraint sets for with and without short sales
-    constraint_set_with_short = {'sum'}
-    constraint_set_no_short = {'sum', 'long_only'}
+    # Generate efficient frontier without short sales (long only)
+    ef_no_short = EfficientFrontier(mean_returns, cov_matrix, weight_bounds=(0, 1))
     
-    # Results for with short sales allowed
-    gmvp_with_short = find_gmvp(mean_returns, cov_matrix, constraint_set_with_short)
-    market_portfolio_with_short = find_market_portfolio(mean_returns, cov_matrix, rf_rate, constraint_set_with_short)
+    # Find the Global Minimum Variance Portfolio (GMVP) without short sales
+    ef_no_short.min_volatility()
+    gmvp_no_short_weights = ef_no_short.clean_weights()
+    gmvp_no_short_performance = ef_no_short.portfolio_performance()
     
-    # Results for without short sales
-    gmvp_no_short = find_gmvp(mean_returns, cov_matrix, constraint_set_no_short)
-    market_portfolio_no_short = find_market_portfolio(mean_returns, cov_matrix, rf_rate, constraint_set_no_short)
+    # Store the results
+    gmvp_no_short = {
+        'volatility': gmvp_no_short_performance[1],
+        'return': gmvp_no_short_performance[0],
+        'weights': [gmvp_no_short_weights.get(asset, 0) for asset in asset_names]
+    }
+    
+    # Find the Market Portfolio (tangent/max Sharpe ratio) without short sales
+    ef_no_short = EfficientFrontier(mean_returns, cov_matrix, weight_bounds=(0, 1))
+    ef_no_short.max_sharpe(risk_free_rate=rf_rate)
+    market_portfolio_no_short_weights = ef_no_short.clean_weights()
+    market_portfolio_no_short_performance = ef_no_short.portfolio_performance()
+    
+    # Store the results
+    market_portfolio_no_short = {
+        'volatility': market_portfolio_no_short_performance[1],
+        'return': market_portfolio_no_short_performance[0],
+        'weights': [market_portfolio_no_short_weights.get(asset, 0) for asset in asset_names],
+        'sharpe': market_portfolio_no_short_performance[2]
+    }
     
     # Generate efficient frontier points with short sales
-    target_returns_with_short = np.linspace(
-        gmvp_with_short['return'], 
-        max(mean_returns) * 1.2,  # Go a bit beyond the highest return
-        points
-    )
+    # Use CLA for more efficient generation of the entire frontier
+    cla_with_short = CLA(mean_returns, cov_matrix, weight_bounds=(-1, 1))
     
+    # We want to generate specific points along the frontier for JSON export
+    # Define return targets between GMVP return and slightly above the highest return asset
+    min_ret = gmvp_with_short['return']
+    max_ret = max(mean_returns) * 1.2  # Go a bit beyond the highest return
+    
+    target_returns_with_short = np.linspace(min_ret, max_ret, points)
     ef_volatility_with_short = []
     ef_returns_with_short = []
     
-    for target in target_returns_with_short:
+    # Create a new EF object for each target return
+    for target_return in target_returns_with_short:
         try:
-            volatility, _ = min_volatility(target, mean_returns, cov_matrix, constraint_set_with_short)
-            ef_volatility_with_short.append(volatility)
-            ef_returns_with_short.append(target)
-        except:
+            ef = EfficientFrontier(mean_returns, cov_matrix, weight_bounds=(-1, 1))
+            ef.efficient_return(target_return)
+            ret, vol, _ = ef.portfolio_performance()
+            ef_returns_with_short.append(ret)
+            ef_volatility_with_short.append(vol)
+        except Exception:
             # Skip if optimization fails for a target return
             pass
     
     # Generate efficient frontier points without short sales
-    target_returns_no_short = np.linspace(
-        gmvp_no_short['return'],
-        max(mean_returns),
-        points
-    )
+    # Define return targets between GMVP return and max return asset
+    min_ret = gmvp_no_short['return']
+    max_ret = max(mean_returns)
     
+    target_returns_no_short = np.linspace(min_ret, max_ret, points)
     ef_volatility_no_short = []
     ef_returns_no_short = []
     
-    for target in target_returns_no_short:
+    # Create a new EF object for each target return
+    for target_return in target_returns_no_short:
         try:
-            volatility, _ = min_volatility(target, mean_returns, cov_matrix, constraint_set_no_short)
-            ef_volatility_no_short.append(volatility)
-            ef_returns_no_short.append(target)
-        except:
+            ef = EfficientFrontier(mean_returns, cov_matrix, weight_bounds=(0, 1))
+            ef.efficient_return(target_return)
+            ret, vol, _ = ef.portfolio_performance()
+            ef_returns_no_short.append(ret)
+            ef_volatility_no_short.append(vol)
+        except Exception:
             # Skip if optimization fails for a target return
             pass
     
+    # Prepare the final results
     return {
         'ef_with_short': {
             'returns': ef_returns_with_short,
@@ -370,7 +329,7 @@ def efficient_frontier(returns_df, cov_matrix, rf_rate=0.03, points=50):
         'market_portfolio_no_short': market_portfolio_no_short,
         'assets': {
             'returns': mean_returns.to_dict(),
-            'names': mean_returns.index.tolist()
+            'names': asset_names
         }
     }
 
@@ -379,10 +338,6 @@ def prepare_output_data(fund_metrics, cov_matrix, ef_results, fund_descriptions,
     # Convert covariance matrix to list of lists
     cov_matrix_list = cov_matrix.values.tolist()
     
-    # Define expense ratios (normally these would come from another source)
-    # Here we're just setting some reasonable defaults
-    expense_ratios = {fund: 0.0035 for fund in fund_metrics.keys()}
-    
     # Prepare the fund data structure
     fund_data = {}
     for fund, metrics in fund_metrics.items():
@@ -390,6 +345,7 @@ def prepare_output_data(fund_metrics, cov_matrix, ef_results, fund_descriptions,
             'annualizedReturn': metrics['annualizedReturn'],
             'annualizedVolatility': metrics['annualizedVolatility'],
             'sharpeRatio': metrics['sharpeRatio'],
+            'sortinoRatio': metrics['sortinoRatio'],
             'maxDrawdown': metrics['maxDrawdown'],
             'description': fund_descriptions.get(fund, "No description available."),
             'assetClass': fund_asset_classes.get(fund, "Equity"),
@@ -406,6 +362,95 @@ def prepare_output_data(fund_metrics, cov_matrix, ef_results, fund_descriptions,
     }
     
     return output_data
+
+def plot_efficient_frontier(ef_results, fund_metrics):
+    """
+    Create a visual representation of the efficient frontier, individual assets,
+    and key portfolios (GMVP and market portfolio)
+    """
+    plt.figure(figsize=(12, 8))
+    
+    # Plot the efficient frontiers
+    plt.plot(
+        ef_results['ef_with_short']['volatilities'],
+        ef_results['ef_with_short']['returns'],
+        'b-', label='Efficient Frontier (with short sales)'
+    )
+    plt.plot(
+        ef_results['ef_no_short']['volatilities'],
+        ef_results['ef_no_short']['returns'],
+        'g-', label='Efficient Frontier (no short sales)'
+    )
+    
+    # Plot individual assets
+    asset_returns = list(ef_results['assets']['returns'].values())
+    asset_vols = [fund_metrics[fund]['annualizedVolatility'] for fund in ef_results['assets']['names']]
+    plt.scatter(asset_vols, asset_returns, c='red', marker='o', label='Individual Assets')
+    
+    # Add asset labels
+    for i, txt in enumerate(ef_results['assets']['names']):
+        plt.annotate(txt, (asset_vols[i], asset_returns[i]), fontsize=8)
+    
+    # Plot GMVP
+    plt.scatter(
+        ef_results['gmvp_with_short']['volatility'],
+        ef_results['gmvp_with_short']['return'],
+        c='blue', marker='*', s=100, label='GMVP (with short sales)'
+    )
+    plt.scatter(
+        ef_results['gmvp_no_short']['volatility'],
+        ef_results['gmvp_no_short']['return'],
+        c='green', marker='*', s=100, label='GMVP (no short sales)'
+    )
+    
+    # Plot Market Portfolio
+    plt.scatter(
+        ef_results['market_portfolio_with_short']['volatility'],
+        ef_results['market_portfolio_with_short']['return'],
+        c='blue', marker='d', s=100, label='Market Portfolio (with short sales)'
+    )
+    plt.scatter(
+        ef_results['market_portfolio_no_short']['volatility'],
+        ef_results['market_portfolio_no_short']['return'],
+        c='green', marker='d', s=100, label='Market Portfolio (no short sales)'
+    )
+    
+    # Add Capital Market Line
+    rf_rate = 0.0255  # Risk-free rate
+    # With short sales
+    mp_with_short = ef_results['market_portfolio_with_short']
+    max_vol_with_short = max(ef_results['ef_with_short']['volatilities']) * 1.2
+    cml_x_with_short = [0, mp_with_short['volatility'], max_vol_with_short]
+    cml_y_with_short = [
+        rf_rate,
+        mp_with_short['return'],
+        rf_rate + (mp_with_short['return'] - rf_rate) / mp_with_short['volatility'] * max_vol_with_short
+    ]
+    plt.plot(cml_x_with_short, cml_y_with_short, 'b--', label='CML (with short sales)')
+    
+    # Without short sales
+    mp_no_short = ef_results['market_portfolio_no_short']
+    max_vol_no_short = max(ef_results['ef_no_short']['volatilities']) * 1.2
+    cml_x_no_short = [0, mp_no_short['volatility'], max_vol_no_short]
+    cml_y_no_short = [
+        rf_rate,
+        mp_no_short['return'],
+        rf_rate + (mp_no_short['return'] - rf_rate) / mp_no_short['volatility'] * max_vol_no_short
+    ]
+    plt.plot(cml_x_no_short, cml_y_no_short, 'g--', label='CML (no short sales)')
+    
+    # Add labels and title
+    plt.xlabel('Annualized Volatility')
+    plt.ylabel('Annualized Return')
+    plt.title('Efficient Frontier Analysis')
+    plt.grid(True)
+    plt.legend()
+    
+    # Save the plot
+    plt.savefig('efficient_frontier.png', dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print("Efficient frontier plot saved as 'efficient_frontier.png'")
 
 if __name__ == "__main__":
     main()

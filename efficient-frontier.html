@@ -61,6 +61,22 @@
           </div>
         </div>
 
+        <!-- New Covariance Matrix Section -->
+        <div class="grid grid-cols-1 mb-6">
+          <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+            <h3 class="text-xl font-semibold mb-3">Asset Covariance Heatmap</h3>
+            <p class="mb-3">
+              This heatmap visualizes the covariance between different assets in
+              the portfolio, showing the raw variance-covariance relationships
+              that impact portfolio risk.
+            </p>
+            <div class="bg-white p-4 rounded-lg border border-gray-200">
+              <div id="covariance-matrix-chart" style="height: 600px"></div>
+            </div>
+          </div>
+        </div>
+        <!-- End of New Covariance Matrix Section -->
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
             <h3 class="text-xl font-semibold mb-3">
@@ -253,6 +269,9 @@
         // Create the efficient frontier visualization
         createEfficientFrontierVisualization();
 
+        // Create the covariance matrix visualization
+        createCovarianceMatrixVisualization();
+
         // Display portfolio metrics
         displayPortfolioMetrics();
       });
@@ -302,7 +321,7 @@
         // 3. Capital Market Line for With Short Sales
         if (efficientFrontierData.market_portfolio_with_short) {
           const mp = efficientFrontierData.market_portfolio_with_short;
-          const riskFreeRate = 0.03; // Assuming 3% risk-free rate
+          const riskFreeRate = 0.0255; // Assuming 2.55% risk-free rate
 
           data.push({
             x: [0, mp.volatility * 2], // Extend CML
@@ -320,7 +339,7 @@
         // 4. Capital Market Line for No Short Sales
         if (efficientFrontierData.market_portfolio_no_short) {
           const mp = efficientFrontierData.market_portfolio_no_short;
-          const riskFreeRate = 0.03; // Assuming 3% risk-free rate
+          const riskFreeRate = 0.0255; // Assuming 2.55% risk-free rate
 
           data.push({
             x: [0, mp.volatility * 2], // Extend CML
@@ -348,7 +367,7 @@
             assetVolatilities.push(Math.sqrt(covarianceMatrix[i][i]));
           }
 
-          // Create shortened fund names for display
+          // Create shortened fund names for display using initials
           const shortNames = assetNames.map((name) => {
             const shortName = name.split(/[ -]/)[0];
             return shortName;
@@ -359,12 +378,19 @@
             y: assetReturns,
             mode: "markers+text",
             name: "Individual Assets",
-            text: shortNames,
+            text: shortNames, // Show name initials on the plot as before
             textposition: "top",
             marker: {
               size: 8,
               color: "rgba(75, 85, 99, 0.8)", // Gray
             },
+            hovertemplate:
+              "<b>%{text}</b><br>" +
+              "Full Name: %{customdata}<br>" +
+              "Expected Return: %{y:.2%}<br>" +
+              "Volatility: %{x:.2%}<br>" +
+              "<extra></extra>",
+            customdata: assetNames, // Store full names for hover
           });
         }
 
@@ -376,16 +402,16 @@
             x: [gmvp.volatility],
             y: [gmvp.return],
             mode: "markers",
-            name: "GMVP (No Short Sales)",
+            name: "GMVP (With Short Sales)",
             marker: {
               size: 12,
-              color: "rgba(16, 185, 129, 1)", // Green
+              color: "rgba(124, 58, 237, 1)", // Purple
               symbol: "star",
             },
           });
         }
 
-        // 7. GMVP without Short Sales if
+        // 7. GMVP without Short Sales
         if (efficientFrontierData.gmvp_no_short) {
           const gmvp = efficientFrontierData.gmvp_no_short;
 
@@ -460,10 +486,10 @@
           annotations: [
             {
               x: 0.01,
-              y: 0.03,
+              y: 0.0255,
               xref: "paper",
               yref: "paper",
-              text: "Risk-Free Rate: 3%",
+              text: "Risk-Free Rate: 2.55%",
               showarrow: false,
               font: {
                 size: 12,
@@ -479,6 +505,277 @@
         Plotly.newPlot("efficient-frontier-chart", data, layout, {
           responsive: true,
         });
+      }
+
+      // New function to create the covariance matrix visualization
+      function createCovarianceMatrixVisualization() {
+        // First check if the covariance matrix is directly accessible
+        if (
+          !efficientFrontierData ||
+          (!efficientFrontierData.covarianceMatrix &&
+            !window.covarianceMatrix &&
+            !covarianceMatrix)
+        ) {
+          console.error("Covariance matrix data not available");
+          document.getElementById("covariance-matrix-chart").innerHTML =
+            '<div class="p-4 text-center text-gray-500">Covariance matrix data not available</div>';
+          return;
+        }
+
+        // Get the covariance matrix from any available source
+        let covMatrix;
+
+        if (efficientFrontierData.covarianceMatrix) {
+          console.log(
+            "Using covariance matrix from efficientFrontierData.covarianceMatrix"
+          );
+          covMatrix = efficientFrontierData.covarianceMatrix;
+        } else if (typeof covarianceMatrix !== "undefined") {
+          console.log("Using global covarianceMatrix variable");
+          covMatrix = covarianceMatrix;
+        } else if (window.covarianceMatrix) {
+          console.log("Using window.covarianceMatrix");
+          covMatrix = window.covarianceMatrix;
+        } else {
+          console.error(
+            "Could not find covariance matrix data in any location"
+          );
+          document.getElementById("covariance-matrix-chart").innerHTML =
+            '<div class="p-4 text-center text-gray-500">Covariance matrix data not available</div>';
+          return;
+        }
+
+        // Ensure covMatrix is properly formatted
+        if (
+          !Array.isArray(covMatrix) ||
+          covMatrix.length === 0 ||
+          !Array.isArray(covMatrix[0])
+        ) {
+          console.error("Invalid covariance matrix format:", covMatrix);
+          document.getElementById("covariance-matrix-chart").innerHTML =
+            '<div class="p-4 text-center text-gray-500">Invalid covariance matrix format</div>';
+          return;
+        }
+
+        // Get asset names and ticker info for labels
+        let assetNames = [];
+        let assetTickers = [];
+
+        if (
+          efficientFrontierData &&
+          efficientFrontierData.assets &&
+          efficientFrontierData.assets.names
+        ) {
+          console.log("Using asset names from efficientFrontierData");
+          assetNames = efficientFrontierData.assets.names;
+
+          // Get tickers directly from the global fundsWithTickers variable
+          if (
+            typeof fundsWithTickers !== "undefined" &&
+            Object.keys(fundsWithTickers).length > 0
+          ) {
+            console.log("Using global fundsWithTickers variable");
+            // Map each asset name to its ticker
+            assetTickers = assetNames.map((name) => {
+              // Direct lookup in the fundsWithTickers dictionary
+              return (
+                fundsWithTickers[name] || `ETF${assetNames.indexOf(name) + 1}`
+              );
+            });
+          } else if (efficientFrontierData.fundsWithTickers) {
+            console.log("Using efficientFrontierData.fundsWithTickers");
+            assetTickers = assetNames.map((name) => {
+              return (
+                efficientFrontierData.fundsWithTickers[name] ||
+                `ETF${assetNames.indexOf(name) + 1}`
+              );
+            });
+          } else {
+            console.warn("No ticker information found, using default naming");
+            assetTickers = assetNames.map((_, i) => `ETF${i + 1}`);
+          }
+        } else {
+          console.log("Using generic asset names");
+          // Create generic labels if names are not available
+          assetNames = Array.from(
+            { length: covMatrix.length },
+            (_, i) => `Asset ${i + 1}`
+          );
+          assetTickers = Array.from(
+            { length: covMatrix.length },
+            (_, i) => `ETF${i + 1}`
+          );
+        }
+
+        console.log("Asset names:", assetNames);
+        console.log("Asset tickers for covariance matrix:", assetTickers);
+        console.log(
+          "Covariance matrix dimensions:",
+          covMatrix.length,
+          "x",
+          covMatrix[0]?.length || 0
+        );
+
+        // Find min and max values for better color scaling
+        let minValue = Infinity;
+        let maxValue = -Infinity;
+
+        for (let i = 0; i < covMatrix.length; i++) {
+          for (let j = 0; j < covMatrix[i].length; j++) {
+            if (covMatrix[i][j] < minValue) minValue = covMatrix[i][j];
+            if (covMatrix[i][j] > maxValue) maxValue = covMatrix[i][j];
+          }
+        }
+
+        // Create the covariance matrix data with hover info
+        const data = [
+          {
+            z: covMatrix,
+            x: assetTickers,
+            y: assetTickers,
+            type: "heatmap",
+            colorscale: [
+              [0, "rgb(165, 0, 38)"], // Lowest values: Dark red
+              [0.25, "rgb(244, 109, 67)"], // Lower values: Light red/orange
+              [0.5, "rgb(255, 255, 255)"], // Middle values: White
+              [0.75, "rgb(116, 173, 209)"], // Higher values: Light blue
+              [1, "rgb(49, 54, 149)"], // Highest values: Dark blue
+            ],
+            zmin: minValue,
+            zmax: maxValue,
+            colorbar: {
+              title: "Covariance",
+              titleside: "right",
+            },
+            hovertemplate:
+              "<b>%{x} x %{y}</b><br>" +
+              "X: %{x} (%{customdata[0]})<br>" +
+              "Y: %{y} (%{customdata[1]})<br>" +
+              "Covariance: %{z:.6f}<br>" +
+              "<extra></extra>",
+            customdata: Array(covMatrix.length)
+              .fill(0)
+              .map((_, i) =>
+                Array(covMatrix[0].length)
+                  .fill(0)
+                  .map((_, j) => [assetNames[i], assetNames[j]])
+              )
+              .flat(),
+          },
+        ];
+
+        // Define layout
+        const layout = {
+          title: "Asset Covariance Matrix Heatmap",
+          autosize: true,
+          margin: {
+            l: 100,
+            r: 50,
+            b: 100,
+            t: 100,
+            pad: 4,
+          },
+          xaxis: {
+            tickangle: -45,
+          },
+          annotations: [],
+        };
+
+        // Add covariance values as text annotations, but only show 2 decimal places
+        for (let i = 0; i < covMatrix.length; i++) {
+          for (let j = 0; j < covMatrix[i].length; j++) {
+            // Format to 2 decimal places only
+            const value = covMatrix[i][j];
+            let displayValue;
+
+            // Format based on value size
+            if (Math.abs(value) < 0.01) {
+              // For very small values, use simplified scientific notation
+              displayValue = value.toExponential(0);
+            } else {
+              // For larger values, use fixed 2 decimals
+              displayValue = value.toFixed(2);
+            }
+
+            const result = {
+              xref: "x",
+              yref: "y",
+              x: assetTickers[j], // Use tickers here
+              y: assetTickers[i], // Use tickers here
+              text: displayValue,
+              showarrow: false,
+              font: {
+                // Choose color based on background intensity
+                color:
+                  Math.abs(value) > (maxValue - minValue) / 3
+                    ? "white"
+                    : "black",
+                size: 8,
+                family: "Arial, sans-serif",
+              },
+            };
+            layout.annotations.push(result);
+          }
+        }
+
+        // Plot the covariance matrix chart
+        Plotly.newPlot("covariance-matrix-chart", data, layout, {
+          responsive: true,
+        });
+
+        // Plot the covariance matrix chart
+        Plotly.newPlot("covariance-matrix-chart", data, layout, {
+          responsive: true,
+        });
+      }
+
+      // Helper function to convert covariance matrix to correlation matrix
+      function calculateCorrelationMatrix(covMatrix) {
+        // Ensure covMatrix is properly formatted
+        if (
+          !Array.isArray(covMatrix) ||
+          covMatrix.length === 0 ||
+          !Array.isArray(covMatrix[0])
+        ) {
+          console.error("Invalid covariance matrix format:", covMatrix);
+          // Return a small sample correlation matrix as fallback
+          return [
+            [1.0, 0.3, -0.2, 0.4],
+            [0.3, 1.0, 0.5, -0.1],
+            [-0.2, 0.5, 1.0, -0.3],
+            [0.4, -0.1, -0.3, 1.0],
+          ];
+        }
+
+        const n = covMatrix.length;
+        const corrMatrix = Array(n)
+          .fill()
+          .map(() => Array(n).fill(0));
+
+        // Calculate correlation matrix from covariance matrix
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) {
+            if (i === j) {
+              corrMatrix[i][j] = 1; // Diagonal elements are 1
+            } else {
+              // Avoid division by zero
+              const stdDevI = Math.sqrt(Math.abs(covMatrix[i][i]));
+              const stdDevJ = Math.sqrt(Math.abs(covMatrix[j][j]));
+
+              if (stdDevI === 0 || stdDevJ === 0) {
+                corrMatrix[i][j] = 0;
+              } else {
+                // Correlation = Covariance(X,Y) / (StdDev(X) * StdDev(Y))
+                corrMatrix[i][j] = covMatrix[i][j] / (stdDevI * stdDevJ);
+
+                // Ensure correlation is between -1 and 1
+                corrMatrix[i][j] = Math.max(-1, Math.min(1, corrMatrix[i][j]));
+              }
+            }
+          }
+        }
+
+        return corrMatrix;
       }
 
       // Function to display portfolio metrics in the UI
@@ -567,10 +864,27 @@
         html +=
           '<tr class="bg-gray-100"><th class="px-2 py-1 text-left">Asset</th><th class="px-2 py-1 text-right">Weight</th></tr>';
 
-        // Create shortened names
-        const shortNames = assetNames.map((name) => {
-          // Take first word or first part up to hyphen/space
-          return name.split(/[ -]/)[0];
+        // Get tickers for each asset using the global fundsWithTickers object
+        const assetTickers = assetNames.map((name) => {
+          // First try the global fundsWithTickers object
+          if (
+            typeof fundsWithTickers !== "undefined" &&
+            fundsWithTickers[name]
+          ) {
+            return fundsWithTickers[name];
+          }
+
+          // Fallback to efficientFrontierData.fundsWithTickers if available
+          if (
+            efficientFrontierData &&
+            efficientFrontierData.fundsWithTickers &&
+            efficientFrontierData.fundsWithTickers[name]
+          ) {
+            return efficientFrontierData.fundsWithTickers[name];
+          }
+
+          // If no ticker available, use a generic label
+          return `ETF${assetNames.indexOf(name) + 1}`;
         });
 
         // Add rows with weights
@@ -581,8 +895,11 @@
           const weight = weights[i];
           const weightClass = weight >= 0 ? "text-green-600" : "text-red-600";
 
+          // Display format: "TICKER - Full Name"
+          const displayName = `${assetTickers[i]} - ${assetNames[i]}`;
+
           html += `<tr class="border-t border-gray-200">
-                    <td class="px-2 py-1">${shortNames[i]}</td>
+                    <td class="px-2 py-1 text-left">${displayName}</td>
                     <td class="px-2 py-1 text-right ${weightClass} font-medium">${(
             weight * 100
           ).toFixed(2)}%</td>
